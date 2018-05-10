@@ -453,7 +453,7 @@ def _main():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     parser = argparse.ArgumentParser(description="gan with vgg.")
-    parser.add_argument("action", choices=["pretrain", "adaption", "test"],
+    parser.add_argument("action", choices=["pretrain", "adaption", "test", "pipeline"],
                         help="action to perform")
     parser.add_argument("-c", "--config", default="gan_vgg.config",
                         help="path to config file")
@@ -470,10 +470,18 @@ def _main():
         pre_train(config)
     elif args.action == "adaption":
         adaption(config)
-    elif args.action == "test" and args.test_using_source:
+    elif args.action == "test":
+        if args.test_using_source:
+            # noinspection PyTypeChecker
+            test(config, vgg=SourceVgg)
+        else:
+            test(config)
+    elif args.action == "pipeline":
+        config["checkpointing"] = False
+        pre_train(config)
+        adaption(config)
         # noinspection PyTypeChecker
         test(config, vgg=SourceVgg)
-    else:
         test(config)
 
 
