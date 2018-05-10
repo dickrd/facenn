@@ -34,7 +34,7 @@ class SourceVgg(Module):
         self.variable_scope = "vgg_source"
 
         data = loadmat(original_model_path)
-        input_image = tf.placeholder(dtype=tf.float32, name="vgg_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_input")
 
         # read meta info
         meta = data['meta']
@@ -181,7 +181,7 @@ class NnRegression(Module):
         self.variable_scope = "nn_regression"
 
         # add regression layers
-        feature = tf.placeholder(dtype=tf.float32)
+        feature = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 512], name="nn_input")
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
@@ -466,7 +466,7 @@ def _main():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     parser = argparse.ArgumentParser(description="gan with vgg.")
-    parser.add_argument("action", choice=["pretrain", "adaption", "test"],
+    parser.add_argument("action", choices=["pretrain", "adaption", "test"],
                         help="action to perform")
     parser.add_argument("-c", "--config", default="gan_vgg.config",
                         help="path to config file")
@@ -476,7 +476,7 @@ def _main():
 
     args = parser.parse_args()
 
-    with open(args.config_path, 'r') as config_file:
+    with open(args.config, 'r') as config_file:
         config = json.load(config_file)
 
     if args.action == "pretrain":
