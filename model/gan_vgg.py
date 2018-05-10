@@ -248,8 +248,8 @@ def pre_train(config):
                                                                                        colocate_gradients_with_ops=True)
     print("optimizing variables: {0}".format(var_to_train))
 
-    if config["checkpoint"]["enabled"]:
-        checkpoint = config["checkpoint"]["path"]
+    if config["checkpointing"]:
+        checkpoint = os.path.join(config["save_root"], "checked")
     else:
         checkpoint = None
     hooks = [EndSavingHook(module_list=[source_feature_module, regression_module], save_path=config["save_root"])]
@@ -265,12 +265,12 @@ def pre_train(config):
                                                                 regression_module.label_input: label_batch
                                                             })
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost at ({0}) : {1}.".format(global_step, current_cost))
+                    print("-- cost at ({0}) : {1}".format(global_step, current_cost))
         except tf.errors.OutOfRangeError:
             pass
 
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
-        message = "==> pre-train complete at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
+        message = "==> pre-train completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
                                                                        global_step)
         log_file.write(message + "\n")
         print(message)
@@ -322,8 +322,8 @@ def adaption(config):
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
 
-    if config["checkpoint"]["enabled"]:
-        checkpoint = config["checkpoint"]["path"]
+    if config["checkpointing"]:
+        checkpoint = os.path.join(config["save_root"], "checked")
     else:
         checkpoint = None
     hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"])]
@@ -352,7 +352,7 @@ def adaption(config):
                                                             })
                 cost_d += current_cost
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost of d (source) at ({0}) : {1}.".format(global_step, current_cost))
+                    print("-- cost of d (source) at ({0}) : {1}".format(global_step, current_cost))
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.feature: target_feature_batch,
@@ -360,7 +360,7 @@ def adaption(config):
                                                             })
                 cost_d += current_cost
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost of d (target) at ({0}) : {1}.".format(global_step, current_cost))
+                    print("-- cost of d (target) at ({0}) : {1}".format(global_step, current_cost))
                 _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.image_input: target_image,
@@ -368,13 +368,13 @@ def adaption(config):
                                                             })
                 cost_m += current_cost
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost of m at ({0}) : {1}.".format(global_step, current_cost))
+                    print("-- cost of m at ({0}) : {1}".format(global_step, current_cost))
 
         except tf.errors.OutOfRangeError:
             pass
 
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
-        message = "==> adaption complete at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
+        message = "==> adaption completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
                                                                       global_step)
         log_file.write(message + "\n")
         print(message)
@@ -429,7 +429,7 @@ def test(config, vgg=TargetVgg):
             pass
 
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
-        message = "==> test for {2} complete at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
+        message = "==> test for {2} completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
                                                                           test_step, vgg)
         log_file.write(message + "\n")
         print(message)

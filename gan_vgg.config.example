@@ -11,10 +11,7 @@
   },
 
   "save_root": "gan_vgg",
-  "checkpoint": {
-    "enabled": true,
-    "path": "checked"
-  },
+  "checkpointing": true,
 
   "report_rate": 100,
   "learning_rate": 1e-4,
