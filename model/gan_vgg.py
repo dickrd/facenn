@@ -34,7 +34,7 @@ class SourceVgg(Module):
         self.variable_scope = "vgg_source"
 
         data = loadmat(original_model_path)
-        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_source_input")
 
         # read meta info
         meta = data['meta']
@@ -106,7 +106,7 @@ class TargetVgg(Module):
         self.variable_scope = "vgg_target"
 
         data = loadmat(original_model_path)
-        input_image = tf.placeholder(dtype=tf.float32, name="vgg_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_target_input")
 
         # read meta info
         meta = data['meta']
@@ -176,12 +176,9 @@ class TargetVgg(Module):
 
 
 class NnRegression(Module):
-    def __init__(self, n_hidden=4096):
+    def __init__(self, feature, n_hidden=4096):
         super(NnRegression, self).__init__()
         self.variable_scope = "nn_regression"
-
-        # add regression layers
-        feature = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 512], name="nn_input")
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
@@ -197,7 +194,6 @@ class NnRegression(Module):
                                      num_outputs=1,
                                      use_relu=False)
 
-            self.feature_input = feature
             self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = fc_output
 
@@ -205,12 +201,9 @@ class NnRegression(Module):
 
 
 class NnClassification(Module):
-    def __init__(self, n_classes, n_hidden=4096):
+    def __init__(self, feature, n_classes, n_hidden=4096):
         super(NnClassification, self).__init__()
         self.variable_scope = "nn_regression"
-
-        # add regression layers
-        feature = tf.placeholder(dtype=tf.float32)
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
@@ -226,7 +219,6 @@ class NnClassification(Module):
                                      num_outputs=n_classes,
                                      use_relu=False)
 
-            self.feature_input = feature
             self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = tf.argmax(tf.nn.softmax(fc_output), dimension=1)
 
@@ -242,7 +234,7 @@ def pre_train(config):
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
-    regression_module = NnRegression()
+    regression_module = NnRegression(feature=source_feature_module.feature)
     image, label = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
@@ -266,11 +258,11 @@ def pre_train(config):
         current_cost = -1
         try:
             while not mon_sess.should_stop():
+                image_batch, label_batch = mon_sess.run([image, label])
                 _, global_step, current_cost = mon_sess.run([optimizer, global_step_op, regression_module.loss],
                                                             feed_dict={
-                                                                source_feature_module.image_input: image,
-                                                                regression_module.feature_input: source_feature_module.feature,
-                                                                regression_module.label_input: label
+                                                                source_feature_module.image_input: image_batch,
+                                                                regression_module.label_input: label_batch
                                                             })
                 if global_step % config["report_rate"] == 0:
                     print("-- cost at ({0}) : {1}.".format(global_step, current_cost))
@@ -309,7 +301,7 @@ def adaption(config):
     target_feature_module = TargetVgg(original_model_path=config["vggface_model"], source_model=source_feature_module,
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
-    discriminator_module = NnClassification(n_classes=2)
+    discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=2)
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
@@ -344,42 +336,37 @@ def adaption(config):
                 cost_d = 0
                 cost_m = 0
 
+                # read image and compute the feature
+                source_image_batch, target_image_batch = mon_sess.run([source_image, target_image])
+                source_feature_batch, target_feature_batch = mon_sess.run([source_feature_module.feature, target_feature_module.feature],
+                                                                          feed_dict={
+                                                                              source_feature_module.image_input: source_image_batch,
+                                                                              target_feature_module.image_input: target_image_batch
+                                                                          })
+
+                # optimization
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
-                                                                source_feature_module.image_input: source_image,
-                                                                discriminator_module.feature_input: source_feature_module.feature,
-                                                                discriminator_module.label_input: tf.constant(0,
-                                                                                                              dtype=tf.float32,
-                                                                                                              shape=source_image.get_shape(),
-                                                                                                              name="label_source")
+                                                                target_feature_module.feature: source_feature_batch,
+                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                                             })
                 cost_d += current_cost
                 if global_step % config["report_rate"] == 0:
                     print("-- cost of d (source) at ({0}) : {1}.".format(global_step, current_cost))
-
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
-                                                                target_feature_module.image_input: target_image,
-                                                                discriminator_module.feature_input: target_feature_module.feature,
-                                                                discriminator_module.label_input: tf.constant(1,
-                                                                                                              dtype=tf.float32,
-                                                                                                              shape=target_image.get_shape(),
-                                                                                                              name="label_source")
+                                                                target_feature_module.feature: target_feature_batch,
+                                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                                             })
                 cost_d += current_cost
                 if global_step % config["report_rate"] == 0:
                     print("-- cost of d (target) at ({0}) : {1}.".format(global_step, current_cost))
-
-                for i in range(2):
-                    _, global_step, current_cost = mon_sess.run(
-                        [optimizer_m, global_step_op, discriminator_module.loss], feed_dict={
-                            target_feature_module.image_input: target_image,
-                            discriminator_module.feature_input: target_feature_module.feature,
-                            discriminator_module.label_input: tf.constant(0, dtype=tf.float32,
-                                                                          shape=target_image.get_shape(),
-                                                                          name="label_source")
-                        })
-                    cost_m += current_cost
+                _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
+                                                            feed_dict={
+                                                                target_feature_module.image_input: target_image,
+                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                                            })
+                cost_m += current_cost
                 if global_step % config["report_rate"] == 0:
                     print("-- cost of m at ({0}) : {1}.".format(global_step, current_cost))
 
@@ -409,7 +396,7 @@ def test(config, vgg=TargetVgg):
 
     feature_module = vgg(original_model_path=config["vggface_model"],
                          trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
-    regression_module = NnRegression()
+    regression_module = NnRegression(feature=feature_module.feature)
     image, label = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["target_data"]["epoch"]) \
         .read(batch_size=config["target_data"]["batch_size"])
@@ -430,12 +417,12 @@ def test(config, vgg=TargetVgg):
         try:
             while not mon_sess.should_stop():
                 test_step += 1
-                prediction, truth, accuracy = mon_sess.run([regression_module.prediction, label, accuracy], feed_dict={
-                    feature_module.image_input: image,
-                    regression_module.feature_input: feature_module.feature
+                image_batch, label_batch = mon_sess.run([image, label])
+                prediction, accuracy = mon_sess.run([regression_module.prediction, accuracy], feed_dict={
+                    feature_module.image_input: image_batch
                 })
                 accumulated_accuracy += accuracy
-                statistics.update(predictions=prediction, truth=truth)
+                statistics.update(predictions=prediction, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
                     print("-- accuracy {0:>8}: {1:8}".format(test_step, accumulated_accuracy / test_step))
         except tf.errors.OutOfRangeError:

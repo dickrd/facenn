@@ -133,8 +133,8 @@ def new_conv_layer(layer_last, num_input_channels, filter_size, num_filters, use
 
 
 def new_weights(shape):
-    return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.05), name='weight')
 
 
 def new_biases(length):
-    return tf.Variable(tf.constant(0.05, shape=[length]))
+    return tf.Variable(tf.constant(0.05, shape=[length]), name='bias')
