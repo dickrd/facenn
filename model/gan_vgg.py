@@ -246,7 +246,12 @@ def pre_train(config):
                                                                                        global_step=global_step_op,
                                                                                        var_list=var_to_train,
                                                                                        colocate_gradients_with_ops=True)
-    print("optimizing variables: {0}".format(var_to_train))
+    print("optimizer variables:", end='')
+    for index, var in enumerate(var_to_train):
+        if index % 2 == 0:
+            print("\n", end='')
+        print("\t{0}".format(var), end='')
+    print("\n", end='')
 
     if config["checkpointing"]:
         checkpoint = os.path.join(config["save_root"], "checked")
@@ -310,17 +315,31 @@ def adaption(config):
         .read(batch_size=config["target_data"]["batch_size"])
 
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
+    var_d = tf.get_collection(key=tf.GraphKeys.TRAINABLE_VARIABLES,
+                              scope=discriminator_module.variable_scope)
     optimizer_d = tf.train.AdamOptimizer(learning_rate=config["learning_rate"]) \
         .minimize(loss=discriminator_module.loss,
                   global_step=global_step_op,
-                  var_list=tf.get_collection(key=tf.GraphKeys.TRAINABLE_VARIABLES,
-                                             scope=discriminator_module.variable_scope),
+                  var_list=var_d,
                   colocate_gradients_with_ops=True)
     optimizer_m = tf.train.AdamOptimizer(learning_rate=config["learning_rate"]) \
         .minimize(loss=discriminator_module.loss,
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
+
+    print("optimizer_d variables:", end='')
+    for index, var in enumerate(var_d):
+        if index % 2 == 0:
+            print("\n", end='')
+        print("\t{0}".format(var), end='')
+    print("\n", end='')
+    print("optimizer_m variables:", end='')
+    for index, var in enumerate(target_feature_module.trainable_list):
+        if index % 2 == 0:
+            print("\n", end='')
+        print("\t{0}".format(var), end='')
+    print("\n", end='')
 
     if config["checkpointing"]:
         checkpoint = os.path.join(config["save_root"], "checked")
