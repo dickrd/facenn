@@ -1,0 +1,25 @@
+{
+  "source_data": {
+    "path": "train.tfrecords",
+    "epoch": 50,
+    "batch_size": 10
+  },
+  "target_data": {
+    "path": "train.tfrecords",
+    "epoch": 150,
+    "batch_size": 10
+  },
+
+  "save_root": "gan_vgg",
+  "checkpoint": {
+    "enabled": true,
+    "path": "checked"
+  },
+
+  "report_rate": 100,
+  "learning_rate": 1e-4,
+
+  "vggface_model": "vgg-face.mat",
+  "trainable_layers": ["conv4_1", "conv4_2", "conv4_3", "conv5_1", "conv5_2", "conv5_3"],
+  "feature_layer": "pool5"
+}
