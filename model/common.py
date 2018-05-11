@@ -33,6 +33,16 @@ class RegressionBias(object):
         return result
 
 
+class EndSavingHook(tf.train.SessionRunHook):
+    def __init__(self, module_list, save_path):
+        self.module_list = module_list
+        self.save_path = save_path
+
+    def end(self, session):
+        for item in self.module_list:
+            item.save(sess=session, path=self.save_path)
+
+
 def new_fc_layer(layer_last, num_inputs, num_outputs, use_relu=True):
     """
     Create a new fully connected layer.

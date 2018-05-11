@@ -8,7 +8,7 @@ import numpy as np
 from scipy.io import loadmat
 
 from data.common import TfReader
-from model.common import new_fc_layer, RegressionBias
+from model.common import new_fc_layer, RegressionBias, EndSavingHook
 
 
 class Module(object):
@@ -263,7 +263,8 @@ def pre_train(config):
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
         checkpoint = None
-    with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint) as mon_sess:
+    hooks = [EndSavingHook(module_list=[source_feature_module, regression_module], save_path=config["save_root"])]
+    with tf.train.MonitoredTrainingSession(hooks=hooks, checkpoint_dir=checkpoint) as mon_sess:
         global_step = -1
         current_cost = -1
         try:
@@ -280,9 +281,6 @@ def pre_train(config):
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
             print("\ncanceled: {0}".format(repr(e)))
-        finally:
-            source_feature_module.save(sess=mon_sess, path=config["save_root"])
-            regression_module.save(sess=mon_sess, path=config["save_root"])
 
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
         message = "==> pre-train completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -355,7 +353,8 @@ def adaption(config):
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
         checkpoint = None
-    with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint) as mon_sess:
+    hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"])]
+    with tf.train.MonitoredTrainingSession(hooks=hooks, checkpoint_dir=checkpoint) as mon_sess:
         global_step = -1
         cost_d = -1
         cost_m = -1
@@ -402,9 +401,6 @@ def adaption(config):
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
             print("\ncanceled: {0}".format(repr(e)))
-        finally:
-            target_feature_module.save(sess=mon_sess, path=config["save_root"])
-            discriminator_module.save(sess=mon_sess, path=config["save_root"])
 
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
         message = "==> adaption completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
