@@ -450,11 +450,11 @@ def test(config, vgg):
             while not mon_sess.should_stop():
                 test_step += 1
                 image_batch, label_batch = mon_sess.run([image, label])
-                prediction, accuracy = mon_sess.run([regression_module.prediction, accuracy], feed_dict={
+                prediction_value, accuracy_value = mon_sess.run([regression_module.prediction, accuracy], feed_dict={
                     feature_module.image_input: image_batch
                 })
-                accumulated_accuracy += accuracy
-                statistics.update(predictions=prediction, truth=label_batch)
+                accumulated_accuracy += accuracy_value
+                statistics.update(predictions=prediction_value, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
                     print("  * step ({0}) accuracy: {1:8}".format(test_step, accumulated_accuracy / test_step))
         except tf.errors.OutOfRangeError:
