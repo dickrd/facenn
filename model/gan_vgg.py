@@ -238,18 +238,11 @@ def pre_train(config):
     print(json.dumps(config, indent=1))
     print("---- END ----")
 
-    print("-- building models...")
-    print("  * source vgg  ", end='')
+    print("--> building models...")
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
-    print("ok")
-
-    print("  * nn regression  ", end='')
     regression_module = NnRegression(feature=source_feature_module.feature)
-    print("ok")
-
-    print("  * misc  ", end='')
     image, label = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
@@ -260,7 +253,6 @@ def pre_train(config):
                                                                                        global_step=global_step_op,
                                                                                        var_list=var_to_train,
                                                                                        colocate_gradients_with_ops=True)
-    print("ok")
 
     print("optimizer variables:", end='')
     for index, var in enumerate(var_to_train):
@@ -269,7 +261,7 @@ def pre_train(config):
         print("  {0}".format(var), end='')
     print("\n", end='')
 
-    print("-- starting session...")
+    print("--> starting session...")
     if config["checkpointing"]:
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
@@ -314,26 +306,17 @@ def adaption(config):
     print(json.dumps(config, indent=1))
     print("---- END ----")
 
-    print("-- building models...")
-    print("  * source vgg  ", end='')
+    print("--> building models...")
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
     with tf.Session() as sess:
         source_feature_module.load(sess=sess, path=config["save_root"])
-    print("ok")
 
-    print("  * target vgg  ", end='')
     target_feature_module = TargetVgg(original_model_path=config["vggface_model"], source_model=source_feature_module,
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
-    print("ok")
-
-    print("  * nn classification  ", end='')
     discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=2)
-    print("ok")
-
-    print("  * misc  ", end='')
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
@@ -353,7 +336,6 @@ def adaption(config):
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
-    print("ok")
 
     print("optimizer_d variables:", end='')
     for index, var in enumerate(var_d):
@@ -368,7 +350,7 @@ def adaption(config):
         print("  {0}".format(var), end='')
     print("\n", end='')
 
-    print("-- starting session...")
+    print("--> starting session...")
     if config["checkpointing"]:
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
@@ -437,37 +419,30 @@ def adaption(config):
         print(message)
 
 
-def test(config, vgg=TargetVgg):
+def test(config, vgg):
     print("==> test started at {0} for {1}.".format(datetime.now().strftime("%Y-%m-%d %H:%M"), vgg))
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
     print("---- END ----")
 
-    print("-- building models...")
+    print("--> building models...")
     with tf.Session() as sess:
-        print("  * vgg  ", end='')
         feature_module = vgg(original_model_path=config["vggface_model"],
                              trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
         feature_module.load(sess=sess, path=config["save_root"])
-        print("ok")
-
-        print("  * nn regression  ", end='')
         regression_module = NnRegression(feature=feature_module.feature)
         regression_module.load(sess=sess, path=config["save_root"])
-        print("ok")
 
-    print("  * misc  ", end='')
     image, label = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["target_data"]["epoch"]) \
         .read(batch_size=config["target_data"]["batch_size"])
     accuracy = tf.reduce_mean(tf.cast(tf.abs(tf.transpose(regression_module.prediction) - label), tf.float32))
     statistics = RegressionBias()
-    print("ok")
 
     # MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
-    print("-- starting session...")
+    print("--> starting session...")
     with tf.train.MonitoredTrainingSession() as mon_sess:
         accumulated_accuracy = 0
         test_step = 0
@@ -529,17 +504,15 @@ def _main():
         adaption(config)
     elif args.action == "test":
         if args.test_using_source:
-            # noinspection PyTypeChecker
             test(config, vgg=SourceVgg)
         else:
-            test(config)
+            test(config, vgg=TargetVgg)
     elif args.action == "pipeline":
         config["checkpointing"] = False
         pre_train(config)
         adaption(config)
-        # noinspection PyTypeChecker
         test(config, vgg=SourceVgg)
-        test(config)
+        test(config, vgg=TargetVgg)
 
 
 if __name__ == "__main__":
