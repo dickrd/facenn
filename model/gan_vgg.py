@@ -301,7 +301,7 @@ def pre_train(config):
 
         log_file.write("---- CONFIG DUMP ----\n")
         json.dump(config, log_file, indent=1)
-        log_file.write("---- END ----\n")
+        log_file.write("\n---- END ----\n")
 
         message = "cost:  {0:8}".format(current_cost)
         log_file.write(message + "\n")
@@ -430,7 +430,7 @@ def adaption(config):
 
         log_file.write("---- CONFIG DUMP ----\n")
         json.dump(config, log_file, indent=1)
-        log_file.write("---- END ----\n")
+        log_file.write("\n---- END ----\n")
 
         message = "cost_d:  {0:8}, cost_m:  {0:8}".format(cost_d, cost_m)
         log_file.write(message + "\n")
@@ -493,7 +493,7 @@ def test(config, vgg=TargetVgg):
 
         log_file.write("---- CONFIG DUMP ----\n")
         json.dump(config, log_file, indent=1)
-        log_file.write("---- END ----\n")
+        log_file.write("\n---- END ----\n")
 
         message = "overall result:  {0:8}".format(accumulated_accuracy / test_step)
         log_file.write(message + "\n")
