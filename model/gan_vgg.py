@@ -14,6 +14,9 @@ from model.common import new_fc_layer, RegressionBias
 class Module(object):
     def __init__(self, variable_scope):
         self.variable_scope = variable_scope
+        self.saver = None
+
+    def _build_saver(self):
         self.saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.variable_scope))
 
     def load(self, sess, path):
@@ -93,6 +96,8 @@ class SourceVgg(Module):
         for name in trainable_layers:
             self.trainable_list += weights[name]
 
+        self._build_saver()
+
 
 class TargetVgg(Module):
     def __init__(self, original_model_path, trainable_layers=None, feature_layer="pool5", source_model=None):
@@ -171,6 +176,8 @@ class TargetVgg(Module):
         for name in trainable_layers:
             self.trainable_list += weights[name]
 
+        self._build_saver()
+
 
 class NnRegression(Module):
     def __init__(self, feature, n_hidden=4096):
@@ -194,6 +201,8 @@ class NnRegression(Module):
             self.prediction = fc_output
 
             self.loss = tf.reduce_sum(tf.pow(tf.transpose(self.prediction) - self.label_input, 2))
+
+        self._build_saver()
 
 
 class NnClassification(Module):
@@ -219,6 +228,8 @@ class NnClassification(Module):
 
             self.loss = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(logits=fc_output, labels=self.label_input))
+
+        self._build_saver()
 
 
 def pre_train(config):
