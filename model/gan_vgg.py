@@ -237,14 +237,22 @@ def pre_train(config):
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
     print("---- END ----")
+
+    print("-- building models...")
+    print("  * source vgg  ", end='')
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
+    print("ok")
+
+    print("  * nn regression  ", end='')
     regression_module = NnRegression(feature=source_feature_module.feature)
+    print("ok")
+
+    print("  * misc  ", end='')
     image, label = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
-
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
     var_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, regression_module.variable_scope) + \
                    source_feature_module.trainable_list
@@ -252,6 +260,8 @@ def pre_train(config):
                                                                                        global_step=global_step_op,
                                                                                        var_list=var_to_train,
                                                                                        colocate_gradients_with_ops=True)
+    print("ok")
+
     print("optimizer variables:", end='')
     for index, var in enumerate(var_to_train):
         if index % 2 == 0:
@@ -259,6 +269,7 @@ def pre_train(config):
         print("  {0}".format(var), end='')
     print("\n", end='')
 
+    print("-- starting session...")
     if config["checkpointing"]:
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
@@ -276,7 +287,7 @@ def pre_train(config):
                                                                 regression_module.label_input: label_batch
                                                             })
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost at ({0}) : {1}".format(global_step, current_cost))
+                    print("  * step ({0}) cost: {1:8}".format(global_step, current_cost))
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
@@ -303,25 +314,32 @@ def adaption(config):
     print(json.dumps(config, indent=1))
     print("---- END ----")
 
+    print("-- building models...")
+    print("  * source vgg  ", end='')
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
     with tf.Session() as sess:
-        print("loading models...", end='')
         source_feature_module.load(sess=sess, path=config["save_root"])
-        print("done.")
+    print("ok")
 
+    print("  * target vgg  ", end='')
     target_feature_module = TargetVgg(original_model_path=config["vggface_model"], source_model=source_feature_module,
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
+    print("ok")
+
+    print("  * nn classification  ", end='')
     discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=2)
+    print("ok")
+
+    print("  * misc  ", end='')
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
     target_image, _ = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["target_data"]["epoch"]) \
         .read(batch_size=config["target_data"]["batch_size"])
-
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
     var_d = tf.get_collection(key=tf.GraphKeys.TRAINABLE_VARIABLES,
                               scope=discriminator_module.variable_scope)
@@ -335,6 +353,7 @@ def adaption(config):
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
+    print("ok")
 
     print("optimizer_d variables:", end='')
     for index, var in enumerate(var_d):
@@ -349,6 +368,7 @@ def adaption(config):
         print("  {0}".format(var), end='')
     print("\n", end='')
 
+    print("-- starting session...")
     if config["checkpointing"]:
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
@@ -379,7 +399,7 @@ def adaption(config):
                                                             })
                 cost_d += current_cost
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost of d (source) at ({0}) : {1}".format(global_step, current_cost))
+                    print("  * step ({0}) cost: {1:8}, ".format(global_step, current_cost), end='')
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.feature: target_feature_batch,
@@ -387,7 +407,7 @@ def adaption(config):
                                                             })
                 cost_d += current_cost
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost of d (target) at ({0}) : {1}".format(global_step, current_cost))
+                    print("{0:8}, ".format(current_cost), end='')
                 _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.image_input: target_image,
@@ -395,7 +415,7 @@ def adaption(config):
                                                             })
                 cost_m += current_cost
                 if global_step % config["report_rate"] == 0:
-                    print("-- cost of m at ({0}) : {1}".format(global_step, current_cost))
+                    print("{0:8}".format(current_cost))
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
@@ -423,26 +443,34 @@ def test(config, vgg=TargetVgg):
     print(json.dumps(config, indent=1))
     print("---- END ----")
 
-    feature_module = vgg(original_model_path=config["vggface_model"],
-                         trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
-    regression_module = NnRegression(feature=feature_module.feature)
+    print("-- building models...")
+    with tf.Session() as sess:
+        print("  * vgg  ", end='')
+        feature_module = vgg(original_model_path=config["vggface_model"],
+                             trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
+        feature_module.load(sess=sess, path=config["save_root"])
+        print("ok")
+
+        print("  * nn regression  ", end='')
+        regression_module = NnRegression(feature=feature_module.feature)
+        regression_module.load(sess=sess, path=config["save_root"])
+        print("ok")
+
+    print("  * misc  ", end='')
     image, label = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["target_data"]["epoch"]) \
         .read(batch_size=config["target_data"]["batch_size"])
-
     accuracy = tf.reduce_mean(tf.cast(tf.abs(tf.transpose(regression_module.prediction) - label), tf.float32))
     statistics = RegressionBias()
+    print("ok")
 
     # MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
+    print("-- starting session...")
     with tf.train.MonitoredTrainingSession() as mon_sess:
         accumulated_accuracy = 0
         test_step = 0
-        print("loading models...", end='')
-        feature_module.load(sess=mon_sess, path=config["save_root"])
-        regression_module.load(sess=mon_sess, path=config["save_root"])
-        print("done.")
         try:
             while not mon_sess.should_stop():
                 test_step += 1
@@ -453,7 +481,7 @@ def test(config, vgg=TargetVgg):
                 accumulated_accuracy += accuracy
                 statistics.update(predictions=prediction, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
-                    print("-- accuracy {0:>8}: {1:8}".format(test_step, accumulated_accuracy / test_step))
+                    print("  * step ({0}) accuracy: {1:8}".format(test_step, accumulated_accuracy / test_step))
         except tf.errors.OutOfRangeError:
             pass
 
