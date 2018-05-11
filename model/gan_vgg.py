@@ -12,16 +12,15 @@ from model.common import new_fc_layer, RegressionBias
 
 
 class Module(object):
-    def __init__(self):
-        self.variable_scope = ""
+    def __init__(self, variable_scope):
+        self.variable_scope = variable_scope
+        self.saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.variable_scope))
 
     def load(self, sess, path):
-        saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.variable_scope))
-        saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
+        self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
 
     def save(self, sess, path):
-        saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.variable_scope))
-        saver.save(sess=sess, save_path=os.path.join(path, self.variable_scope))
+        self.saver.save(sess=sess, save_path=os.path.join(path, self.variable_scope))
 
 
 class SourceVgg(Module):
@@ -30,8 +29,7 @@ class SourceVgg(Module):
         Code from https://github.com/ZZUTK/Tensorflow-VGG-face, modified by Dick Zhou.
         """
 
-        super(SourceVgg, self).__init__()
-        self.variable_scope = "vgg_source"
+        super(SourceVgg, self).__init__(variable_scope="vgg_source")
 
         data = loadmat(original_model_path)
         input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_source_input")
@@ -102,8 +100,7 @@ class TargetVgg(Module):
         Code from https://github.com/ZZUTK/Tensorflow-VGG-face, modified by Dick Zhou.
         """
 
-        super(TargetVgg, self).__init__()
-        self.variable_scope = "vgg_target"
+        super(TargetVgg, self).__init__(variable_scope="vgg_target")
 
         data = loadmat(original_model_path)
         input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_target_input")
@@ -177,8 +174,7 @@ class TargetVgg(Module):
 
 class NnRegression(Module):
     def __init__(self, feature, n_hidden=4096):
-        super(NnRegression, self).__init__()
-        self.variable_scope = "nn_regression"
+        super(NnRegression, self).__init__(variable_scope="nn_regression")
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
@@ -202,8 +198,7 @@ class NnRegression(Module):
 
 class NnClassification(Module):
     def __init__(self, feature, n_classes, n_hidden=4096):
-        super(NnClassification, self).__init__()
-        self.variable_scope = "nn_regression"
+        super(NnClassification, self).__init__(variable_scope="nn_regression")
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
@@ -250,7 +245,7 @@ def pre_train(config):
     for index, var in enumerate(var_to_train):
         if index % 2 == 0:
             print("\n", end='')
-        print("\t{0}".format(var), end='')
+        print("  {0}".format(var), end='')
     print("\n", end='')
 
     if config["checkpointing"]:
@@ -273,7 +268,7 @@ def pre_train(config):
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
-            print("canceled: {0}".format(repr(e)))
+            print("\ncanceled: {0}".format(repr(e)))
         finally:
             source_feature_module.save(sess=mon_sess, path=config["save_root"])
             regression_module.save(sess=mon_sess, path=config["save_root"])
@@ -336,13 +331,13 @@ def adaption(config):
     for index, var in enumerate(var_d):
         if index % 2 == 0:
             print("\n", end='')
-        print("\t{0}".format(var), end='')
+        print("  {0}".format(var), end='')
     print("\n", end='')
     print("optimizer_m variables:", end='')
     for index, var in enumerate(target_feature_module.trainable_list):
         if index % 2 == 0:
             print("\n", end='')
-        print("\t{0}".format(var), end='')
+        print("  {0}".format(var), end='')
     print("\n", end='')
 
     if config["checkpointing"]:
@@ -395,7 +390,7 @@ def adaption(config):
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
-            print("canceled: {0}".format(repr(e)))
+            print("\ncanceled: {0}".format(repr(e)))
         finally:
             target_feature_module.save(sess=mon_sess, path=config["save_root"])
             discriminator_module.save(sess=mon_sess, path=config["save_root"])
