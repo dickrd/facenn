@@ -48,7 +48,7 @@ class LoadInitialValueHook(tf.train.SessionRunHook):
         self.module_list = module_list
         self.save_path = save_path
 
-    def end(self, session):
+    def after_create_session(self, session, coord):
         for item in self.module_list:
             item.load_once(sess=session, path=self.save_path)
 
