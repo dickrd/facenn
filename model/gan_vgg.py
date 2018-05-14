@@ -169,8 +169,8 @@ class TargetVgg(Module):
         self.trainable_list = []
         self.weights = weights
 
-        self.trainable_layers= trainable_layers
-        self.override_save_path = None
+        self._trainable_layers= trainable_layers
+        self._override_save_path = None
 
         for name in trainable_layers:
             self.trainable_list += weights[name]
@@ -180,20 +180,20 @@ class TargetVgg(Module):
 
     def override_saver_for_init_by(self, source_model):
         init_config = {}
-        for name in self.trainable_layers:
+        for name in self._trainable_layers:
             w_s, b_s = source_model.weights[name]
             w_t, b_t = self.weights[name]
-            init_config[w_s.name] = w_t
-            init_config[b_s.name] = b_t
+            init_config[w_s.name.split(':')[0]] = w_t
+            init_config[b_s.name.split(':')[0]] = b_t
 
         self.saver = tf.train.Saver(init_config)
-        self.override_save_path = source_model.variable_scope
+        self._override_save_path = source_model.variable_scope
 
 
     def load_once(self, sess, path):
         if not self.loaded:
-            if self.override_save_path:
-                self.saver.restore(sess=sess, save_path=os.path.join(path, self.override_save_path))
+            if self._override_save_path:
+                self.saver.restore(sess=sess, save_path=os.path.join(path, self._override_save_path))
             else:
                 self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
             self.loaded = True
