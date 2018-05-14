@@ -473,8 +473,10 @@ def test(config, vgg):
                 statistics.update(predictions=prediction_value, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
                     print("  * step ({0}) accuracy: {1:8}".format(test_step, accumulated_accuracy / test_step))
-        except tf.errors.OutOfRangeError:
-            pass
+        except tf.errors.OutOfRangeError as e:
+            print("no more data: {0}".format(repr(e)))
+        except KeyboardInterrupt as e:
+            print("\ncanceled: {0}".format(repr(e)))
 
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
         message = "==> test for {2} completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
