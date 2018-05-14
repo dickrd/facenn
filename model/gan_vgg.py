@@ -8,19 +8,22 @@ import numpy as np
 from scipy.io import loadmat
 
 from data.common import TfReader
-from model.common import new_fc_layer, RegressionBias, EndSavingHook
+from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook
 
 
 class Module(object):
     def __init__(self, variable_scope):
         self.variable_scope = variable_scope
         self.saver = None
+        self.loaded = False
 
     def _build_saver(self):
         self.saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.variable_scope))
 
-    def load(self, sess, path):
-        self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
+    def load_once(self, sess, path):
+        if not self.loaded:
+            self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
+            self.loaded = True
 
     def save(self, sess, path):
         self.saver.save(sess=sess, save_path=os.path.join(path, self.variable_scope))
@@ -223,7 +226,7 @@ class NnClassification(Module):
                                      num_outputs=n_classes,
                                      use_relu=False)
 
-            self.label_input = tf.placeholder(dtype=tf.float32)
+            self.label_input = tf.placeholder(dtype=tf.int32)
             self.prediction = tf.argmax(tf.nn.softmax(fc_output), dimension=1)
 
             self.loss = tf.reduce_mean(
@@ -310,9 +313,6 @@ def adaption(config):
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
-    with tf.Session() as sess:
-        source_feature_module.load(sess=sess, path=config["save_root"])
-
     target_feature_module = TargetVgg(original_model_path=config["vggface_model"], source_model=source_feature_module,
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
@@ -355,7 +355,8 @@ def adaption(config):
         checkpoint = os.path.join(config["save_root"], "checked")
     else:
         checkpoint = None
-    hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"])]
+    hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"]),
+             LoadInitialValueHook(module_list=[source_feature_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks, checkpoint_dir=checkpoint) as mon_sess:
         global_step = -1
         cost_d = -1
@@ -426,13 +427,9 @@ def test(config, vgg):
     print("---- END ----")
 
     print("--> building models...")
-    with tf.Session() as sess:
-        feature_module = vgg(original_model_path=config["vggface_model"],
-                             trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
-        feature_module.load(sess=sess, path=config["save_root"])
-        regression_module = NnRegression(feature=feature_module.feature)
-        regression_module.load(sess=sess, path=config["save_root"])
-
+    feature_module = vgg(original_model_path=config["vggface_model"],
+                         trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
+    regression_module = NnRegression(feature=feature_module.feature)
     image, label = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["target_data"]["epoch"]) \
         .read(batch_size=config["target_data"]["batch_size"])
@@ -443,7 +440,8 @@ def test(config, vgg):
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
     print("--> starting session...")
-    with tf.train.MonitoredTrainingSession() as mon_sess:
+    hooks = [LoadInitialValueHook(module_list=[feature_module, regression_module], save_path=config["save_root"])]
+    with tf.train.MonitoredTrainingSession(hooks=hooks) as mon_sess:
         accumulated_accuracy = 0
         test_step = 0
         try:
