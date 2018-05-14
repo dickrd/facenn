@@ -103,7 +103,7 @@ class SourceVgg(Module):
 
 
 class TargetVgg(Module):
-    def __init__(self, original_model_path, trainable_layers=None, feature_layer="pool5", source_model=None):
+    def __init__(self, original_model_path, trainable_layers=None, feature_layer="pool5"):
         """
         Code from https://github.com/ZZUTK/Tensorflow-VGG-face, modified by Dick Zhou.
         """
@@ -137,16 +137,9 @@ class TargetVgg(Module):
                     else:
                         padding = 'SAME'
                     stride = layer[0]['stride'][0][0]
-
-                    if source_model:
-                        variables = source_model.weights[name]
-                    else:
-                        kernel, bias = layer[0]['weights'][0][0]
-                        variables = [kernel, np.squeeze(bias).reshape(-1)]
-
-                    weight = tf.Variable(variables[0], name="weight_" + name)
-                    bias = tf.Variable(variables[1], name="bias_" + name)
-
+                    kernel, bias = layer[0]['weights'][0][0]
+                    weight = tf.Variable(kernel, name="weight_" + name)
+                    bias = tf.Variable(np.squeeze(bias).reshape(-1), name="bias_" + name)
                     conv = tf.nn.conv2d(current, weight,
                                         strides=(1, stride[0], stride[0], 1), padding=padding)
                     current = tf.nn.bias_add(conv, bias)
@@ -176,10 +169,34 @@ class TargetVgg(Module):
         self.trainable_list = []
         self.weights = weights
 
+        self.trainable_layers= trainable_layers
+        self.override_save_path = None
+
         for name in trainable_layers:
             self.trainable_list += weights[name]
 
         self._build_saver()
+
+
+    def override_saver_for_init_by(self, source_model):
+        init_config = {}
+        for name in self.trainable_layers:
+            w_s, b_s = source_model.weights[name]
+            w_t, b_t = self.weights[name]
+            init_config[w_s.name] = w_t
+            init_config[b_s.name] = b_t
+
+        self.saver = tf.train.Saver(init_config)
+        self.override_save_path = source_model.variable_scope
+
+
+    def load_once(self, sess, path):
+        if not self.loaded:
+            if self.override_save_path:
+                self.saver.restore(sess=sess, save_path=os.path.join(path, self.override_save_path))
+            else:
+                self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
+            self.loaded = True
 
 
 class NnRegression(Module):
@@ -313,9 +330,10 @@ def adaption(config):
     source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
-    target_feature_module = TargetVgg(original_model_path=config["vggface_model"], source_model=source_feature_module,
+    target_feature_module = TargetVgg(original_model_path=config["vggface_model"],
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
+    target_feature_module.override_saver_for_init_by(source_model=source_feature_module)
     discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=2)
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["source_data"]["epoch"]) \
@@ -356,7 +374,7 @@ def adaption(config):
     else:
         checkpoint = None
     hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"]),
-             LoadInitialValueHook(module_list=[source_feature_module], save_path=config["save_root"])]
+             LoadInitialValueHook(module_list=[source_feature_module, target_feature_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks, checkpoint_dir=checkpoint) as mon_sess:
         global_step = -1
         cost_d = -1
@@ -393,7 +411,7 @@ def adaption(config):
                     print("{0:8}, ".format(current_cost), end='')
                 _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
                                                             feed_dict={
-                                                                target_feature_module.image_input: target_image,
+                                                                target_feature_module.image_input: target_image_batch,
                                                                 discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                                             })
                 cost_m += current_cost
