@@ -1,11 +1,11 @@
 {
   "source_data": {
-    "path": "train.tfrecords",
+    "path": ["train.tfrecords"],
     "epoch": 50,
     "batch_size": 10
   },
   "target_data": {
-    "path": "train.tfrecords",
+    "path": ["train.tfrecords"],
     "epoch": 50,
     "batch_size": 10
   },
