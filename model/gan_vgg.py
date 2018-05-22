@@ -170,7 +170,8 @@ class TargetVgg(Module):
         self.weights = weights
 
         self._trainable_layers= trainable_layers
-        self._override_save_path = None
+        self._init_path = None
+        self._init_saver = None
 
         for name in trainable_layers:
             self.trainable_list += weights[name]
@@ -186,14 +187,14 @@ class TargetVgg(Module):
             init_config[w_s.name.split(':')[0]] = w_t
             init_config[b_s.name.split(':')[0]] = b_t
 
-        self.saver = tf.train.Saver(init_config)
-        self._override_save_path = source_model.variable_scope
+        self._init_saver = tf.train.Saver(init_config)
+        self._init_path = source_model.variable_scope
 
 
     def load_once(self, sess, path):
         if not self.loaded:
-            if self._override_save_path:
-                self.saver.restore(sess=sess, save_path=os.path.join(path, self._override_save_path))
+            if self._init_path:
+                self._init_saver.restore(sess=sess, save_path=os.path.join(path, self._init_path))
             else:
                 self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
             self.loaded = True
@@ -227,7 +228,7 @@ class NnRegression(Module):
 
 class NnClassification(Module):
     def __init__(self, feature, n_classes, n_hidden=4096):
-        super(NnClassification, self).__init__(variable_scope="nn_regression")
+        super(NnClassification, self).__init__(variable_scope="nn_classification")
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
