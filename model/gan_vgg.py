@@ -245,7 +245,7 @@ class NnClassification(Module):
                                      use_relu=False)
 
             self.label_input = tf.placeholder(dtype=tf.int32)
-            self.prediction = tf.argmax(tf.nn.softmax(fc_output), dimension=1)
+            self.prediction = tf.argmax(tf.nn.softmax(fc_output), axis=1)
 
             self.loss = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(logits=fc_output, labels=self.label_input))
@@ -355,6 +355,7 @@ def adaption(config):
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
+    accuracy = tf.reduce_mean(tf.cast(tf.equal(discriminator_module.prediction, discriminator_module.label_input), tf.float32))
 
     print("optimizer_d variables:", end='')
     for index, var in enumerate(var_d):
@@ -380,10 +381,10 @@ def adaption(config):
         global_step = -1
         cost_d = -1
         cost_m = -1
+        accuracy_d = -1
         try:
             while not mon_sess.should_stop():
-                cost_d = 0
-                cost_m = 0
+                accuracy_d = 0
 
                 # read image and compute the feature
                 source_image_batch, target_image_batch = mon_sess.run([source_image, target_image])
@@ -393,31 +394,45 @@ def adaption(config):
                                                                               target_feature_module.image_input: target_image_batch
                                                                           })
 
+                # determine accuracy
+                accuracy_d += mon_sess.run([accuracy],
+                                           feed_dict={
+                                               target_feature_module.feature: source_feature_batch,
+                                               discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                           })
+                accuracy_d += mon_sess.run([accuracy],
+                                           feed_dict={
+                                               target_feature_module.feature: target_feature_batch,
+                                               discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                                           })
+                accuracy_d = accuracy_d / 2
                 # optimization
-                _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
-                                                            feed_dict={
-                                                                target_feature_module.feature: source_feature_batch,
-                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
-                                                            })
-                cost_d += current_cost
+                if accuracy_d < 0.4:
+                    cost_d = 0
+                    _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
+                                                                feed_dict={
+                                                                    target_feature_module.feature: source_feature_batch,
+                                                                    discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                                                })
+                    cost_d += current_cost
+                    _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
+                                                                feed_dict={
+                                                                    target_feature_module.feature: target_feature_batch,
+                                                                    discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                                                                })
+                    cost_d += current_cost
+                else:
+                    cost_m = 0
+                    _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
+                                                                feed_dict={
+                                                                    target_feature_module.image_input: target_image_batch,
+                                                                    discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                                                })
+                    cost_m += current_cost
+
+                # report progress
                 if global_step % config["report_rate"] == 0:
-                    print("  * step ({0}) cost: {1:8}, ".format(global_step, current_cost), end='')
-                _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
-                                                            feed_dict={
-                                                                target_feature_module.feature: target_feature_batch,
-                                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
-                                                            })
-                cost_d += current_cost
-                if global_step % config["report_rate"] == 0:
-                    print("{0:8}, ".format(current_cost), end='')
-                _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
-                                                            feed_dict={
-                                                                target_feature_module.image_input: target_image_batch,
-                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
-                                                            })
-                cost_m += current_cost
-                if global_step % config["report_rate"] == 0:
-                    print("{0:8}".format(current_cost))
+                    print("  * step ({3}) cost_d:  {0:8}, cost_m:  {1:8}, accuracy_d: {2:8}".format(cost_d, cost_m, accuracy_d, global_step))
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
@@ -434,7 +449,7 @@ def adaption(config):
         json.dump(config, log_file, indent=1)
         log_file.write("\n---- END ----\n")
 
-        message = "cost_d:  {0:8}, cost_m:  {0:8}".format(cost_d, cost_m)
+        message = "cost_d:  {0:8}, cost_m:  {1:8}, accuracy_d: {2:8}".format(cost_d, cost_m, accuracy_d)
         log_file.write(message + "\n")
         print(message)
 
