@@ -9,6 +9,11 @@
     "epoch": 50,
     "batch_size": 10
   },
+  "test_data": {
+    "path": ["test.tfrecords"],
+    "epoch": 1,
+    "batch_size": 10
+  },
 
   "save_root": "gan_vgg",
   "checkpointing": true,

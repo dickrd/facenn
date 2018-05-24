@@ -465,9 +465,9 @@ def test(config, vgg):
     feature_module = vgg(original_model_path=config["vggface_model"],
                          trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
     regression_module = NnRegression(feature=feature_module.feature)
-    image, label = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
-                            num_epochs=config["target_data"]["epoch"]) \
-        .read(batch_size=config["target_data"]["batch_size"])
+    image, label = TfReader(data_path=config["test_data"]["path"], regression=True, size=(224, 224),
+                            num_epochs=config["test_data"]["epoch"]) \
+        .read(batch_size=config["test_data"]["batch_size"])
     accuracy = tf.reduce_mean(tf.cast(tf.abs(tf.transpose(regression_module.prediction) - label), tf.float32))
     statistics = RegressionBias()
 
