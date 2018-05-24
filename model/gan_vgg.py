@@ -284,7 +284,7 @@ def pre_train(config):
 
     print("--> starting session...")
     if config["checkpointing"]:
-        checkpoint = os.path.join(config["save_root"], "checked")
+        checkpoint = os.path.join(config["save_root"], "adamantite")
     else:
         checkpoint = None
     hooks = [EndSavingHook(module_list=[source_feature_module, regression_module], save_path=config["save_root"])]
@@ -372,7 +372,7 @@ def adaption(config):
 
     print("--> starting session...")
     if config["checkpointing"]:
-        checkpoint = os.path.join(config["save_root"], "checked")
+        checkpoint = os.path.join(config["save_root"], "adamantite")
     else:
         checkpoint = None
     hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"]),
@@ -406,6 +406,7 @@ def adaption(config):
                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                            })
                 accuracy_d = accuracy_d / 2
+
                 # optimization
                 if accuracy_d < 0.4:
                     cost_d = 0
