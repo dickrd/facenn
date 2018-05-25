@@ -244,7 +244,7 @@ class NnClassification(Module):
                                      num_outputs=n_classes,
                                      use_relu=False)
 
-            self.label_input = tf.placeholder(dtype=tf.int32)
+            self.label_input = tf.placeholder(dtype=tf.int64)
             self.prediction = tf.argmax(tf.nn.softmax(fc_output), axis=1)
 
             self.loss = tf.reduce_mean(
@@ -395,12 +395,12 @@ def adaption(config):
                                                                           })
 
                 # determine accuracy
-                accuracy_d += mon_sess.run([accuracy],
+                accuracy_d += mon_sess.run(accuracy,
                                            feed_dict={
                                                target_feature_module.feature: source_feature_batch,
                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                            })
-                accuracy_d += mon_sess.run([accuracy],
+                accuracy_d += mon_sess.run(accuracy,
                                            feed_dict={
                                                target_feature_module.feature: target_feature_batch,
                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
