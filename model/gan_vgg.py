@@ -408,7 +408,7 @@ def adaption(config):
                 accuracy_d = accuracy_d / 2
 
                 # optimization
-                if accuracy_d < 0.4:
+                if accuracy_d < 0.5:
                     cost_d = 0
                     _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                                 feed_dict={
