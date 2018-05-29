@@ -2,6 +2,7 @@ from __future__ import print_function
 import json
 import os
 from datetime import datetime
+from random import random
 
 import tensorflow as tf
 import numpy as np
@@ -408,7 +409,11 @@ def adaption(config):
                 accuracy_d = accuracy_d / 2
 
                 # optimization
-                if accuracy_d < 0.5:
+                force_optimization = False
+                if global_step < 500 or random() < 0.1:
+                    force_optimization = True
+
+                if force_optimization or accuracy_d <= 0.5:
                     cost_d = 0
                     _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                                 feed_dict={
@@ -422,7 +427,7 @@ def adaption(config):
                                                                     discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                                                 })
                     cost_d += current_cost
-                else:
+                if force_optimization or accuracy_d > 0.5:
                     cost_m = 0
                     _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
                                                                 feed_dict={
