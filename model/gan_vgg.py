@@ -232,6 +232,8 @@ class NnClassification(Module):
         super(NnClassification, self).__init__(variable_scope="nn_classification")
 
         with tf.variable_scope(self.variable_scope):
+            noise = tf.random_normal(shape=tf.shape(feature), mean=0.0, stddev=0.1, dtype=tf.float32)
+            feature += noise
             num_features = feature.get_shape()[1:].num_elements()
             fc_input = tf.reshape(feature, [-1, num_features])
 
@@ -410,7 +412,7 @@ def adaption(config):
 
                 # optimization
                 force_optimization = False
-                if global_step < 500 or random() < 0.1:
+                if global_step < 100 or random() < 0.1:
                     force_optimization = True
 
                 if force_optimization or cost_d > cost_m:
@@ -429,7 +431,7 @@ def adaption(config):
                     cost_d += current_cost
                 if force_optimization or cost_d <= cost_m:
                     cost_m = 0
-                    for _ in range(8):
+                    for _ in range(2):
                         _, global_step, current_cost = mon_sess.run(
                             [optimizer_m, global_step_op, discriminator_module.loss],
                             feed_dict={
