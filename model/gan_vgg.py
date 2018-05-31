@@ -413,7 +413,7 @@ def adaption(config):
                 if global_step < 500 or random() < 0.1:
                     force_optimization = True
 
-                if force_optimization or accuracy_d <= 0.5:
+                if force_optimization or cost_d > cost_m:
                     cost_d = 0
                     _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                                 feed_dict={
@@ -427,9 +427,9 @@ def adaption(config):
                                                                     discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                                                 })
                     cost_d += current_cost
-                if force_optimization or accuracy_d > 0.5:
+                if force_optimization or cost_d <= cost_m:
                     cost_m = 0
-                    for _ in range(2):
+                    for _ in range(8):
                         _, global_step, current_cost = mon_sess.run(
                             [optimizer_m, global_step_op, discriminator_module.loss],
                             feed_dict={
