@@ -429,12 +429,15 @@ def adaption(config):
                     cost_d += current_cost
                 if force_optimization or accuracy_d > 0.5:
                     cost_m = 0
-                    _, global_step, current_cost = mon_sess.run([optimizer_m, global_step_op, discriminator_module.loss],
-                                                                feed_dict={
-                                                                    target_feature_module.image_input: target_image_batch,
-                                                                    discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
-                                                                })
-                    cost_m += current_cost
+                    for _ in range(2):
+                        _, global_step, current_cost = mon_sess.run(
+                            [optimizer_m, global_step_op, discriminator_module.loss],
+                            feed_dict={
+                                target_feature_module.image_input: target_image_batch,
+                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                            })
+                        cost_m += current_cost
+                    cost_m /= 2
 
                 # report progress
                 if global_step % config["report_rate"] == 0:
