@@ -232,7 +232,7 @@ class NnClassification(Module):
         super(NnClassification, self).__init__(variable_scope="nn_classification")
 
         with tf.variable_scope(self.variable_scope):
-            noise = tf.random_normal(shape=tf.shape(feature), mean=0.0, stddev=0.1, dtype=tf.float32)
+            noise = tf.random_normal(shape=tf.shape(feature), mean=0.0, stddev=5, dtype=tf.float32)
             feature += noise
             num_features = feature.get_shape()[1:].num_elements()
             fc_input = tf.reshape(feature, [-1, num_features])
@@ -417,29 +417,37 @@ def adaption(config):
 
                 if force_optimization or cost_d > cost_m:
                     cost_d = 0
+                    accumulated_cost = 0
+
                     _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                                 feed_dict={
                                                                     target_feature_module.feature: source_feature_batch,
                                                                     discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                                                 })
-                    cost_d += current_cost
+                    accumulated_cost += current_cost
                     _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                                 feed_dict={
                                                                     target_feature_module.feature: target_feature_batch,
                                                                     discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                                                 })
-                    cost_d += current_cost
+                    accumulated_cost += current_cost
+
+                    cost_d = accumulated_cost / 2
                 if force_optimization or cost_d <= cost_m:
+                    epoch_multiplier_d = 4
                     cost_m = 0
-                    for _ in range(2):
+                    accumulated_cost = 0
+
+                    for _ in range(epoch_multiplier_d):
                         _, global_step, current_cost = mon_sess.run(
                             [optimizer_m, global_step_op, discriminator_module.loss],
                             feed_dict={
                                 target_feature_module.image_input: target_image_batch,
                                 discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                             })
-                        cost_m += current_cost
-                    cost_m /= 2
+                        accumulated_cost += current_cost
+
+                    cost_m = accumulated_cost / epoch_multiplier_d
 
                 # report progress
                 if global_step % config["report_rate"] == 0:
