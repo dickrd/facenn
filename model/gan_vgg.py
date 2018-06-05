@@ -478,7 +478,6 @@ def test(config, vgg):
     image, label = TfReader(data_path=config["test_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["test_data"]["epoch"]) \
         .read(batch_size=config["test_data"]["batch_size"])
-    accuracy = tf.reduce_mean(tf.cast(tf.abs(tf.transpose(regression_module.prediction) - label), tf.float32))
     statistics = RegressionBias()
 
     # MonitoredTrainingSession takes care of session initialization,
@@ -493,9 +492,10 @@ def test(config, vgg):
             while not mon_sess.should_stop():
                 test_step += 1
                 image_batch, label_batch = mon_sess.run([image, label])
-                prediction_value, accuracy_value = mon_sess.run([regression_module.prediction, accuracy], feed_dict={
+                prediction_value = mon_sess.run(regression_module.prediction, feed_dict={
                     feature_module.image_input: image_batch
                 })
+                accuracy_value = np.mean(np.abs(np.transpose(prediction_value) - label_batch))
                 accumulated_accuracy += accuracy_value
                 statistics.update(predictions=prediction_value, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
