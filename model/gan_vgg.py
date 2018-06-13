@@ -385,6 +385,7 @@ def adaption(config):
         cost_d = -1
         cost_m = -1
         accuracy_d = -1
+        last_report = 0
         try:
             while not mon_sess.should_stop():
                 accuracy_d = 0
@@ -450,7 +451,8 @@ def adaption(config):
                     cost_m = accumulated_cost / epoch_multiplier_d
 
                 # report progress
-                if global_step % config["report_rate"] == 0:
+                if global_step > last_report:
+                    last_report +=  config["report_rate"]
                     print("  * step ({3}) cost_d:  {0:8.4f}, cost_m:  {1:8.4f}, accuracy_d: {2:8.4f}".format(cost_d, cost_m, accuracy_d, global_step))
 
         except tf.errors.OutOfRangeError as e:
