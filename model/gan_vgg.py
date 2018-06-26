@@ -337,7 +337,7 @@ def adaption(config):
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
     target_feature_module.override_saver_for_init_by(source_model=source_feature_module)
-    discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=2)
+    discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=1)
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
