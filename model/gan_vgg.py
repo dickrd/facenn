@@ -246,7 +246,7 @@ class NnClassification(Module):
                                      num_outputs=n_classes,
                                      use_relu=False)
 
-            self.label_input = tf.placeholder(dtype=tf.int64)
+            self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = tf.argmax(tf.nn.softmax(fc_output), axis=1)
 
             self.loss = tf.reduce_mean(
@@ -357,7 +357,7 @@ def adaption(config):
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
-    accuracy = tf.reduce_mean(tf.cast(tf.equal(discriminator_module.prediction, discriminator_module.label_input), tf.float32))
+    accuracy = tf.reduce_mean(tf.abs(discriminator_module.prediction - discriminator_module.label_input))
 
     print("optimizer_d variables:", end='')
     for index, var in enumerate(var_d):
