@@ -2,7 +2,6 @@ from __future__ import print_function
 import json
 import os
 from datetime import datetime
-from random import random
 
 import tensorflow as tf
 import numpy as np
@@ -251,7 +250,7 @@ class NnClassification(Module):
             self.prediction = tf.argmax(tf.nn.softmax(fc_output), axis=1)
 
             self.loss = tf.reduce_mean(
-                tf.nn.sparse_softmax_cross_entropy_with_logits(logits=fc_output, labels=self.label_input))
+                tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output, labels=self.label_input))
 
         self._build_saver()
 
@@ -402,12 +401,12 @@ def adaption(config):
                 accuracy_d += mon_sess.run(accuracy,
                                            feed_dict={
                                                target_feature_module.feature: source_feature_batch,
-                                               discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                               discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                            })
                 accuracy_d += mon_sess.run(accuracy,
                                            feed_dict={
                                                target_feature_module.feature: target_feature_batch,
-                                               discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                                               discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                            })
                 accuracy_d = accuracy_d / 2
 
@@ -418,13 +417,13 @@ def adaption(config):
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.feature: source_feature_batch,
-                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                                                discriminator_module.label_input: [0.9] * config["target_data"]["batch_size"]
                                                             })
                 accumulated_cost += current_cost
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.feature: target_feature_batch,
-                                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                                             })
                 accumulated_cost += current_cost
 
@@ -440,7 +439,7 @@ def adaption(config):
                         [optimizer_m, global_step_op, discriminator_module.loss],
                         feed_dict={
                             target_feature_module.image_input: target_image_batch,
-                            discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                            discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                         })
                     accumulated_cost += current_cost
 
