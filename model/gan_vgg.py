@@ -22,6 +22,7 @@ class Module(object):
 
     def load_once(self, sess, path):
         if not self.loaded:
+            print("loading saved model...")
             self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
             self.loaded = True
 
@@ -194,8 +195,10 @@ class TargetVgg(Module):
     def load_once(self, sess, path):
         if not self.loaded:
             if self._init_path:
+                print("initing model by duplicate...")
                 self._init_saver.restore(sess=sess, save_path=os.path.join(path, self._init_path))
             else:
+                print("loading saved model...")
                 self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
             self.loaded = True
 
