@@ -247,7 +247,7 @@ class NnClassification(Module):
                                      use_relu=False)
 
             self.label_input = tf.placeholder(dtype=tf.float32)
-            self.prediction = tf.argmax(tf.nn.softmax(fc_output), axis=1)
+            self.prediction = tf.nn.sigmoid(fc_output)
 
             self.loss = tf.reduce_mean(
                 tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output, labels=self.label_input))
