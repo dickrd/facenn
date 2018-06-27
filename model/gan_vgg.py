@@ -22,7 +22,7 @@ class Module(object):
 
     def load_once(self, sess, path):
         if not self.loaded:
-            print("loading saved model...")
+            print("loading saved {0} model...".format(self.variable_scope))
             self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
             self.loaded = True
 
@@ -195,10 +195,10 @@ class TargetVgg(Module):
     def load_once(self, sess, path):
         if not self.loaded:
             if self._init_path:
-                print("initing model by duplicate...")
+                print("init {0} model by copy...".format(self.variable_scope))
                 self._init_saver.restore(sess=sess, save_path=os.path.join(path, self._init_path))
             else:
-                print("loading saved model...")
+                print("loading saved {0} model...".format(self.variable_scope))
                 self.saver.restore(sess=sess, save_path=os.path.join(path, self.variable_scope))
             self.loaded = True
 
@@ -433,7 +433,7 @@ def adaption(config):
                 cost_d = accumulated_cost / 2
 
                 # generator
-                epoch_multiplier_d = 4
+                epoch_multiplier_d = 2
                 cost_m = 0
                 accumulated_cost = 0
 
