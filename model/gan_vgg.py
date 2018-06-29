@@ -545,6 +545,8 @@ def _main():
 
     parser.add_argument("--test-using-source", action="store_true",
                         help="test source feature performance on target")
+    parser.add_argument("--repeat", default=5, type=int,
+                        help="test source feature performance on target")
 
     args = parser.parse_args()
 
@@ -561,11 +563,10 @@ def _main():
         else:
             test(config, vgg=TargetVgg)
     elif args.action == "pipeline":
-        config["checkpointing"] = False
-        pre_train(config)
-        adaption(config)
-        test(config, vgg=SourceVgg)
-        test(config, vgg=TargetVgg)
+        config["checkpointing"] = True
+        for i in range(args.repeat):
+            adaption(config)
+            test(config, vgg=TargetVgg)
 
 
 if __name__ == "__main__":
