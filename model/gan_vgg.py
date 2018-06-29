@@ -230,7 +230,7 @@ class NnRegression(Module):
 
 
 class NnClassification(Module):
-    def __init__(self, feature, n_classes, n_hidden=4096):
+    def __init__(self, feature, n_hidden=4096):
         super(NnClassification, self).__init__(variable_scope="nn_classification")
 
         with tf.variable_scope(self.variable_scope):
@@ -246,14 +246,14 @@ class NnClassification(Module):
 
             fc_output = new_fc_layer(layer_last=fc_hidden,
                                      num_inputs=n_hidden,
-                                     num_outputs=n_classes,
+                                     num_outputs=1,
                                      use_relu=False)
 
             self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = tf.nn.sigmoid(fc_output)
 
-            self.loss = tf.reduce_mean(
-                tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output, labels=self.label_input))
+            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
+                                                                               labels=self.label_input))
 
         self._build_saver()
 
@@ -340,7 +340,7 @@ def adaption(config):
                                       trainable_layers=config["trainable_layers"],
                                       feature_layer=config["feature_layer"])
     target_feature_module.override_saver_for_init_by(source_model=source_feature_module)
-    discriminator_module = NnClassification(feature=target_feature_module.feature, n_classes=1)
+    discriminator_module = NnClassification(feature=target_feature_module.feature)
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                                num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
@@ -545,8 +545,6 @@ def _main():
 
     parser.add_argument("--test-using-source", action="store_true",
                         help="test source feature performance on target")
-    parser.add_argument("--repeat", default=5, type=int,
-                        help="test source feature performance on target")
 
     args = parser.parse_args()
 
@@ -563,10 +561,7 @@ def _main():
         else:
             test(config, vgg=TargetVgg)
     elif args.action == "pipeline":
-        config["checkpointing"] = True
-        for i in range(args.repeat):
-            adaption(config)
-            test(config, vgg=TargetVgg)
+        pass
 
 
 if __name__ == "__main__":
