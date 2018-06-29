@@ -420,7 +420,7 @@ def adaption(config):
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
                                                             feed_dict={
                                                                 target_feature_module.feature: source_feature_batch,
-                                                                discriminator_module.label_input: [0.9] * config["target_data"]["batch_size"]
+                                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
                                                             })
                 accumulated_cost += current_cost
                 _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],

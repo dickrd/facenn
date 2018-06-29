@@ -12,6 +12,6 @@ export PYTHONPATH=$BASEDIR
 
 for i in `seq 1 10`;
 do
-    python model/gan_vgg.py adaption
-    python model/gan_vgg.py test
+    python $BASEDIR/model/gan_vgg.py adaption
+    python $BASEDIR/model/gan_vgg.py test
 done
