@@ -234,8 +234,10 @@ class NnClassification(Module):
         super(NnClassification, self).__init__(variable_scope="nn_classification")
 
         with tf.variable_scope(self.variable_scope):
-            noise = tf.random_normal(shape=tf.shape(feature), mean=0.0, stddev=10, dtype=tf.float32)
-            feature += noise
+            # add noise
+            #noise = tf.random_uniform(shape=tf.shape(feature), minval=-5.0, maxval=5, dtype=tf.float32)
+            #noise = tf.random_normal(shape=tf.shape(feature), mean=0.0, stddev=10, dtype=tf.float32)
+            #feature += noise
             num_features = feature.get_shape()[1:].num_elements()
             fc_input = tf.reshape(feature, [-1, num_features])
 
