@@ -17,7 +17,7 @@ setup_basedir() {
         [[ "$source" != /* ]] && source="$DIR/$source"
     done
     basedir="$( cd -P "$( dirname "$source" )" && pwd )"
-    PYTHONPATH="$basedir"
+    export PYTHONPATH="$basedir"
 }
 
 # run python script
