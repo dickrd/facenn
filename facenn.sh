@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -o nounset
 set -o errexit
+trap "exit" INT
 
 print_help() {
     echo "usage: facenn <config> | gan [options]"
@@ -37,7 +38,7 @@ main() {
             done
             repeat=$(("$repeat" - 1))
         done
-    elif [ "$#" -gt 1 ]
+    elif [ "$#" -gt 0 ]
     then
         case "$1" in
             gan)
