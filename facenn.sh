@@ -36,7 +36,7 @@ main() {
             do
                 python "$basedir/$module" ${arg}
             done
-            repeat=$(("$repeat" - 1))
+            repeat=$(($repeat - 1))
         done
     elif [ "$#" -gt 0 ]
     then
