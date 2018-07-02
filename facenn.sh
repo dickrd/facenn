@@ -2,6 +2,10 @@
 set -o nounset
 set -o errexit
 
+print_help() {
+    echo "usage: facenn <config> | gan [options]"
+}
+
 # find script directory
 setup_basedir() {
     local source="${BASH_SOURCE[0]}"
@@ -17,13 +21,13 @@ setup_basedir() {
 
 # run python script
 main() {
+    setup_basedir
     if [ "$#" -eq 1 ] && [ -r "$1" ]
     then
         echo "---- CONFIG DUMP ----"
         cat "$1"
         echo "---- END ----"
         source "$1"
-        setup_basedir
 
         while [ "$repeat" -gt 0 ]
         do
@@ -33,16 +37,19 @@ main() {
             done
             repeat=$(("$repeat" - 1))
         done
-    else
+    elif [ "$#" -gt 1 ]
+    then
         case "$1" in
             gan)
                 shift
                 python "$basedir/model/gan_vgg.py" $@
                 ;;
             *)
-                echo "usage: $0 <config> | gan [options]"
+                print_help
                 ;;
         esac
+    else
+        print_help
     fi
 }
 
