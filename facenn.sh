@@ -2,9 +2,6 @@
 set -o nounset
 set -o errexit
 
-basedir="./"
-repeat_time=1
-
 # find script directory
 setup_basedir() {
     local source="${BASH_SOURCE[0]}"
@@ -20,25 +17,33 @@ setup_basedir() {
 
 # run python script
 main() {
-    if [ ! "$#" -eq 1 ] || [ ! -r "$1" ]
+    if [ "$#" -eq 1 ] && [ -r "$1" ]
     then
-        echo "must provide a config file!"
-        exit -1
-    fi
-    echo "---- CONFIG DUMP ----"
-    cat "$1"
-    echo "---- END ----"
-    source "$1"
-    setup_basedir
+        echo "---- CONFIG DUMP ----"
+        cat "$1"
+        echo "---- END ----"
+        source "$1"
+        setup_basedir
 
-    while [ "$repeat" -gt 0 ]
-    do
-        for arg in "${args[@]}"
+        while [ "$repeat" -gt 0 ]
         do
-            python "$basedir/$module" ${arg}
+            for arg in "${args[@]}"
+            do
+                python "$basedir/$module" ${arg}
+            done
+            repeat=$(("$repeat" - 1))
         done
-        repeat=$(("$repeat" - 1))
-    done
+    else
+        case "$1" in
+            gan)
+                shift
+                python "$basedir/model/gan_vgg.py" $@
+                ;;
+            *)
+                echo "usage: $0 <config> | gan [options]"
+                ;;
+        esac
+    fi
 }
 
 main $@

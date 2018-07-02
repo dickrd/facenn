@@ -536,9 +536,6 @@ def test(config, vgg):
 
 def _main():
     import argparse
-
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
     parser = argparse.ArgumentParser(description="gan with vgg.")
     parser.add_argument("action", choices=["pretrain", "adaption", "test", "pipeline"],
                         help="action to perform")
@@ -547,8 +544,12 @@ def _main():
 
     parser.add_argument("--test-using-source", action="store_true",
                         help="test source feature performance on target")
+    parser.add_argument("--cuda-devices", default="1",
+                        help="cuda device to use")
 
     args = parser.parse_args()
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_devices
 
     with open(args.config, 'r') as config_file:
         config = json.load(config_file)
