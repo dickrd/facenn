@@ -36,6 +36,12 @@ main() {
             do
                 python "$basedir/$module" ${arg}
             done
+
+            # clean-up
+            if [ ${#cleanup} -gt 0 ]
+            then
+                rm ${cleanup}
+            fi
             repeat=$(($repeat - 1))
         done
     elif [ "$#" -gt 0 ]
