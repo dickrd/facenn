@@ -261,6 +261,11 @@ class NnClassification(Module):
 
 
 def pre_train(config):
+    try:
+        os.mkdir(os.path.join(config["save_root"], "adamantite"))
+    except OSError:
+        pass
+
     print("==> pre-train started at {0}.".format(datetime.now().strftime("%Y-%m-%d %H:%M")))
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
@@ -327,8 +332,15 @@ def pre_train(config):
         log_file.write(message + "\n")
         print(message)
 
+    os.remove(os.path.join(config["save_root"], "checkpoint"))
+
 
 def adaption(config):
+    try:
+        os.mkdir(os.path.join(config["save_root"], "adamantite"))
+    except OSError:
+        pass
+
     print("==> adaption started at {0}.".format(datetime.now().strftime("%Y-%m-%d %H:%M")))
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
@@ -474,11 +486,20 @@ def adaption(config):
         log_file.write(message + "\n")
         print(message)
 
+    os.remove(os.path.join(config["save_root"], "checkpoint"))
+
 
 def test(config, vgg):
     from io import BytesIO
     from PIL import Image
     from zipfile import ZipFile
+    import time
+
+    try:
+        os.mkdir(os.path.join(config["save_root"], "crimtane"))
+    except OSError:
+        pass
+
     print("==> test started at {0} for {1}.".format(datetime.now().strftime("%Y-%m-%d %H:%M"), vgg))
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
@@ -497,12 +518,13 @@ def test(config, vgg):
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
     print("--> starting session...")
-    zip_file = ZipFile(os.path.join(config["save_root"], "test_result_{0}.zip".format(str(datetime.now()).split('.')[0])),
+    zip_file = ZipFile(os.path.join(config["save_root"], "crimtane", "test_result_{0}.zip".format(int(time.time()))),
                        'w')
     hooks = [LoadInitialValueHook(module_list=[feature_module, regression_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks) as mon_sess:
         accumulated_accuracy = 0
         test_step = 0
+        file_count = 0
         try:
             while not mon_sess.should_stop():
                 test_step += 1
@@ -518,11 +540,12 @@ def test(config, vgg):
                 if config["keep_zip"] > 0:
                     for image_bytes, label_float, predition_float in zip(image_batch, label_batch, prediction_value):
                         prediction_string = str(int(predition_float + (0.5 if predition_float > 0 else -0.5)))
-                        label_string = str(label_float)
+                        label_string = str(int(label_float))
                         jpeg_bytes = BytesIO()
                         Image.fromarray(np.uint8(image_bytes), "RGB").save(jpeg_bytes, format="JPEG")
-                        zip_file.writestr("{0}/{1}.jpg".format(label_string, prediction_string),
+                        zip_file.writestr("{0}/{1}_{2:05}.jpg".format(label_string, prediction_string, file_count),
                                           jpeg_bytes.getvalue())
+                        file_count += 1
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
@@ -542,7 +565,7 @@ def test(config, vgg):
         if config["keep_zip"] > 0:
             keep_zip = config["keep_zip"]
             import glob
-            zips = glob.glob(os.path.join(config["save_root"], "test_result_*.zip"))
+            zips = glob.glob(os.path.join(config["save_root"], "crimtane", "test_result_*.zip"))
             for a_zip in sorted(zips, reverse=True):
                 if keep_zip > 0:
                     keep_zip -= 1
