@@ -476,6 +476,9 @@ def adaption(config):
 
 
 def test(config, vgg):
+    from io import BytesIO
+    from PIL import Image
+    from zipfile import ZipFile
     print("==> test started at {0} for {1}.".format(datetime.now().strftime("%Y-%m-%d %H:%M"), vgg))
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
@@ -494,6 +497,8 @@ def test(config, vgg):
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
     print("--> starting session...")
+    zip_file = ZipFile(os.path.join(config["save_root"], "test_result_{0}.zip".format(str(datetime.now()).split('.')[0])),
+                       'w')
     hooks = [LoadInitialValueHook(module_list=[feature_module, regression_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks) as mon_sess:
         accumulated_accuracy = 0
@@ -510,11 +515,20 @@ def test(config, vgg):
                 statistics.update(predictions=prediction_value, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
                     print("  * step ({0}) accuracy: {1:8}".format(test_step, accumulated_accuracy / test_step))
+                if config["keep_zip"] > 0:
+                    for image_bytes, label_float, predition_float in zip(image_batch, label_batch, prediction_value):
+                        prediction_string = str(int(predition_float + (0.5 if predition_float > 0 else -0.5)))
+                        label_string = str(label_float)
+                        jpeg_bytes = BytesIO()
+                        Image.fromarray(np.uint8(image_bytes), "RGB").save(jpeg_bytes, format="JPEG")
+                        zip_file.writestr("{0}/{1}.jpg".format(label_string, prediction_string),
+                                          jpeg_bytes.getvalue())
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
         except KeyboardInterrupt as e:
             print("\ncanceled: {0}".format(repr(e)))
 
+    zip_file.close()
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
         message = "==> test for {2} completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
                                                                           test_step, vgg)
@@ -524,6 +538,20 @@ def test(config, vgg):
         log_file.write("---- CONFIG DUMP ----\n")
         json.dump(config, log_file, indent=1)
         log_file.write("\n---- END ----\n")
+
+        if config["keep_zip"] > 0:
+            keep_zip = config["keep_zip"]
+            import glob
+            zips = glob.glob(os.path.join(config["save_root"], "test_result_*.zip"))
+            for a_zip in sorted(zips, reverse=True):
+                if keep_zip > 0:
+                    keep_zip -= 1
+                    continue
+                os.remove(a_zip)
+
+            message = "result wrote to {0}.".format(zip_file.filename)
+            log_file.write(message + "\n")
+            print(message)
 
         message = "overall result:  {0:8}".format(accumulated_accuracy / test_step)
         log_file.write(message + "\n")

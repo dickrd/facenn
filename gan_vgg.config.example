@@ -17,6 +17,7 @@
 
   "save_root": "gan_vgg",
   "checkpointing": true,
+  "keep_zip": 1,
 
   "report_rate": 100,
   "learning_rate": 1e-4,
