@@ -25,10 +25,11 @@ main() {
     setup_basedir
     if [ "$#" -eq 1 ] && [ -r "$1" ]
     then
-        echo "---- CONFIG DUMP ----"
-        cat "$1"
-        echo "---- END ----"
         source "$1"
+        git --work-tree="$basedir" --git-dir="$basedir/.git" diff | tee -a "$logs"
+        echo "---- CONFIG DUMP ----" | tee -a "$logs"
+        cat "$1" | tee -a "$logs"
+        echo "---- END ----" | tee -a "$logs"
 
         while [ "$repeat" -gt 0 ]
         do
