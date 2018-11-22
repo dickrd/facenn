@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 module="model/gan_vgg.py"
-args=("-c gan_vgg.config pre-train" "adaption" "test")
-logs="gan_vgg.log"
-cleanup="adamantite/events.out.tfevents.*"
+args=("--config gan_vgg.config pre-train" "adaption" "test")
+logs="gan_vgg/gan_vgg.log"
+cleanup="gan_vgg/adamantite/events.out.tfevents.*"
 repeat=2

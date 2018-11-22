@@ -41,7 +41,7 @@ main() {
             # clean-up
             if [ ${#cleanup} -gt 0 ]
             then
-                rm ${cleanup}
+                rm -f ${cleanup}
             fi
             repeat=$(($repeat - 1))
         done

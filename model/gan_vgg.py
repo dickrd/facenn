@@ -518,8 +518,11 @@ def test(config, vgg):
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
     print("--> starting session...")
-    zip_file = ZipFile(os.path.join(config["save_root"], "crimtane", "test_result_{0}.zip".format(int(time.time()))),
-                       'w')
+    if config["keep_zip"] > 0:
+        zip_file = ZipFile(os.path.join(config["save_root"], "crimtane", "test_result_{0}.zip".format(int(time.time()))),
+                           'w')
+    else:
+        zip_file = DummyFile()
     hooks = [LoadInitialValueHook(module_list=[feature_module, regression_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks) as mon_sess:
         accumulated_accuracy = 0

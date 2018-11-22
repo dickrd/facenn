@@ -33,6 +33,13 @@ class RegressionBias(object):
         return result
 
 
+class DummyFile(object):
+    def writestr(self, name, content):
+        pass
+    def close(self):
+        pass
+
+
 class EndSavingHook(tf.train.SessionRunHook):
     def __init__(self, module_list, save_path):
         self.module_list = module_list
