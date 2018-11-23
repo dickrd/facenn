@@ -8,7 +8,7 @@ import numpy as np
 from scipy.io import loadmat
 
 from data.common import TfReader
-from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook
+from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook, DummyFile
 
 
 class Module(object):
