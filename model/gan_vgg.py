@@ -417,23 +417,6 @@ def adaption(config):
                                                                               target_feature_module.image_input: target_image_batch
                                                                           })
 
-                # determine accuracy
-                accuracy_d = 0
-                accuracy_d += mon_sess.run(accuracy,
-                                           feed_dict={
-                                               target_feature_module.feature: source_feature_batch,
-                                               discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
-                                           })
-                accuracy_d += mon_sess.run(accuracy,
-                                           feed_dict={
-                                               target_feature_module.feature: target_feature_batch,
-                                               discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
-                                           })
-                accuracy_d = accuracy_d / 2
-                # report progress
-                if global_step >= step_for_report:
-                    print("  * step a ({1}) accy:  {0:8.4f}".format(accuracy_d, global_step))
-
                 # discriminator
                 if "discriminator" in config["adaption_mode"]:
                     cost_d = 0
@@ -476,6 +459,25 @@ def adaption(config):
                     # report progress
                     if global_step >= step_for_report:
                         print("  * step m ({1}) cost:  {0:8.4f}".format(cost_m, global_step))
+
+                    # determine accuracy
+                    accuracy_d = 0
+                    accuracy_d += mon_sess.run(accuracy,
+                                               feed_dict={
+                                                   target_feature_module.feature: source_feature_batch,
+                                                   discriminator_module.label_input: [1] * config["target_data"][
+                                                       "batch_size"]
+                                               })
+                    accuracy_d += mon_sess.run(accuracy,
+                                               feed_dict={
+                                                   target_feature_module.feature: target_feature_batch,
+                                                   discriminator_module.label_input: [0] * config["target_data"][
+                                                       "batch_size"]
+                                               })
+                    accuracy_d = accuracy_d / 2
+                    # report progress
+                    if global_step >= step_for_report:
+                        print("  * step a ({1}) accy:  {0:8.4f}".format(accuracy_d, global_step))
 
                 if global_step >= step_for_report:
                     step_for_report = global_step + config["report_rate"]
