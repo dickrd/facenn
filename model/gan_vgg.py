@@ -407,6 +407,7 @@ def adaption(config):
         cost_m = -1
         accuracy_d = -1
         step_for_report = 0
+        step_for_header = 0
         try:
             while not mon_sess.should_stop():
                 # read image and compute the feature
@@ -436,9 +437,6 @@ def adaption(config):
                     accumulated_cost += current_cost
 
                     cost_d = accumulated_cost / 2
-                    # report progress
-                    if global_step >= step_for_report:
-                        print("  * step d ({1})\t{0:8.4f}".format(cost_d, global_step))
 
                 # generator
                 if "generator" in config["adaption_mode"]:
@@ -456,9 +454,6 @@ def adaption(config):
                         accumulated_cost += current_cost
 
                     cost_m = accumulated_cost / epoch_multiplier_d
-                    # report progress
-                    if global_step >= step_for_report:
-                        print("  * step m ({1})\t\t{0:8.4f}".format(cost_m, global_step))
 
                 # determine accuracy
                 accuracy_d = 0
@@ -475,10 +470,14 @@ def adaption(config):
                                                    "batch_size"]
                                            })
                 accuracy_d = accuracy_d / 2
-                # report accuracy
+
+                # report progress
+                if global_step >= step_for_header:
+                    step_for_header = global_step + config["report_rate"] * 25
+                    print("           step    cost_m    cost_d  accuracy")
                 if global_step >= step_for_report:
                     step_for_report = global_step + config["report_rate"]
-                    print("  * {0:8.4f}% estimated accuracy".format(accuracy_d * 100))
+                    print("  *  ({0:8})  {1:8.4f}  {2:8.4f}  {3:8.4f}%".format(global_step, cost_m, cost_d, accuracy_d * 100))
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
