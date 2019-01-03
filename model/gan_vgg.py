@@ -435,7 +435,7 @@ def adaption(config):
                     print("  * step a ({1}) accy:  {0:8.4f}".format(accuracy_d, global_step))
 
                 # discriminator
-                if "discriminator" in config["mode"]:
+                if "discriminator" in config["adaption_mode"]:
                     cost_d = 0
                     accumulated_cost = 0
 
@@ -458,7 +458,7 @@ def adaption(config):
                         print("  * step d ({1}) cost:  {0:8.4f}".format(cost_d, global_step))
 
                 # generator
-                if "generator" in config["mode"]:
+                if "generator" in config["adaption_mode"]:
                     epoch_multiplier_d = 1
                     cost_m = 0
                     accumulated_cost = 0
@@ -609,6 +609,9 @@ def _main():
     parser.add_argument("-c", "--config", default="gan_vgg.config",
                         help="path to config file")
 
+    parser.add_argument("--adaption-mode", default=None,
+                        help="cuda device to use")
+
     parser.add_argument("--test-using-source", action="store_true",
                         help="test source feature performance on target")
     parser.add_argument("--cuda-devices", default="1",
@@ -620,6 +623,8 @@ def _main():
 
     with open(args.config, 'r') as config_file:
         config = json.load(config_file)
+    if args.adaption_mode:
+        config["adaption_mode"] = args.adaption_mode
 
     if args.action == "pretrain":
         pre_train(config)

@@ -19,7 +19,7 @@
   "checkpointing": true,
   "keep_zip": 1,
 
-  "mode": "discriminator_generator",
+  "adaption_mode": "discriminator_generator",
   "report_rate": 100,
   "learning_rate": 1e-4,
   "alternative_learning_rate": 1e-4,
