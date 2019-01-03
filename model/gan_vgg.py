@@ -438,7 +438,7 @@ def adaption(config):
                     cost_d = accumulated_cost / 2
                     # report progress
                     if global_step >= step_for_report:
-                        print("  * step d ({1}) cost:  {0:8.4f}".format(cost_d, global_step))
+                        print("  * step d ({1})\t{0:8.4f}".format(cost_d, global_step))
 
                 # generator
                 if "generator" in config["adaption_mode"]:
@@ -458,7 +458,7 @@ def adaption(config):
                     cost_m = accumulated_cost / epoch_multiplier_d
                     # report progress
                     if global_step >= step_for_report:
-                        print("  * step m ({1}) cost:  {0:8.4f}".format(cost_m, global_step))
+                        print("  * step m ({1})\t\t{0:8.4f}".format(cost_m, global_step))
 
                 # determine accuracy
                 accuracy_d = 0
@@ -478,7 +478,7 @@ def adaption(config):
                 # report accuracy
                 if global_step >= step_for_report:
                     step_for_report = global_step + config["report_rate"]
-                    print("  * {0:8.4f} estimated accuracy".format(accuracy_d))
+                    print("  * {0:8.4f}% estimated accuracy".format(accuracy_d * 100))
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
