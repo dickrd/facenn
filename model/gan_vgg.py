@@ -254,8 +254,8 @@ class NnClassification(Module):
             self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = tf.nn.sigmoid(fc_output)
 
-            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
-                                                                               labels=self.label_input))
+            self.loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
+                                                                              labels=self.label_input))
 
         self._build_saver()
 
@@ -364,7 +364,7 @@ def adaption(config):
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
     var_d = tf.get_collection(key=tf.GraphKeys.TRAINABLE_VARIABLES,
                               scope=discriminator_module.variable_scope)
-    optimizer_d = tf.train.AdamOptimizer(learning_rate=config["learning_rate"]) \
+    optimizer_d = tf.train.AdamOptimizer(learning_rate=config["alternative_learning_rate"]) \
         .minimize(loss=discriminator_module.loss,
                   global_step=global_step_op,
                   var_list=var_d,
@@ -374,7 +374,7 @@ def adaption(config):
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
-    accuracy = tf.reduce_mean(tf.abs(discriminator_module.prediction - discriminator_module.label_input))
+    accuracy = tf.reduce_mean(1 - tf.abs(discriminator_module.prediction - discriminator_module.label_input))
 
     print("optimizer_d variables:", end='')
     for index, var in enumerate(var_d):
@@ -394,18 +394,21 @@ def adaption(config):
         checkpoint = os.path.join(config["save_root"], "adamantite")
     else:
         checkpoint = None
-    hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"]),
-             LoadInitialValueHook(module_list=[source_feature_module, target_feature_module], save_path=config["save_root"])]
+
+    # no need to init when checkpoint exist
+    if checkpoint and os.path.exists(os.path.join(checkpoint, "checkpoint")):
+        hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"])]
+    else:
+        hooks = [EndSavingHook(module_list=[target_feature_module, discriminator_module], save_path=config["save_root"]),
+                 LoadInitialValueHook(module_list=[source_feature_module, target_feature_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks, checkpoint_dir=checkpoint) as mon_sess:
         global_step = -1
         cost_d = -1
         cost_m = -1
         accuracy_d = -1
-        last_report = 0
+        step_for_report = 0
         try:
             while not mon_sess.should_stop():
-                accuracy_d = 0
-
                 # read image and compute the feature
                 source_image_batch, target_image_batch = mon_sess.run([source_image, target_image])
                 source_feature_batch, target_feature_batch = mon_sess.run([source_feature_module.feature, target_feature_module.feature],
@@ -415,6 +418,7 @@ def adaption(config):
                                                                           })
 
                 # determine accuracy
+                accuracy_d = 0
                 accuracy_d += mon_sess.run(accuracy,
                                            feed_dict={
                                                target_feature_module.feature: source_feature_batch,
@@ -426,46 +430,55 @@ def adaption(config):
                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
                                            })
                 accuracy_d = accuracy_d / 2
+                # report progress
+                if global_step >= step_for_report:
+                    print("  * step a ({1}) accy:  {0:8.4f}".format(accuracy_d, global_step))
 
                 # discriminator
-                cost_d = 0
-                accumulated_cost = 0
+                if "discriminator" in config["mode"]:
+                    cost_d = 0
+                    accumulated_cost = 0
 
-                _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
-                                                            feed_dict={
-                                                                target_feature_module.feature: source_feature_batch,
-                                                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
-                                                            })
-                accumulated_cost += current_cost
-                _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
-                                                            feed_dict={
-                                                                target_feature_module.feature: target_feature_batch,
-                                                                discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
-                                                            })
-                accumulated_cost += current_cost
-
-                cost_d = accumulated_cost / 2
-
-                # generator
-                epoch_multiplier_d = 2
-                cost_m = 0
-                accumulated_cost = 0
-
-                for _ in range(epoch_multiplier_d):
-                    _, global_step, current_cost = mon_sess.run(
-                        [optimizer_m, global_step_op, discriminator_module.loss],
-                        feed_dict={
-                            target_feature_module.image_input: target_image_batch,
-                            discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
-                        })
+                    _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
+                                                                feed_dict={
+                                                                    target_feature_module.feature: source_feature_batch,
+                                                                    discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                                                                })
+                    accumulated_cost += current_cost
+                    _, global_step, current_cost = mon_sess.run([optimizer_d, global_step_op, discriminator_module.loss],
+                                                                feed_dict={
+                                                                    target_feature_module.feature: target_feature_batch,
+                                                                    discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
+                                                                })
                     accumulated_cost += current_cost
 
-                cost_m = accumulated_cost / epoch_multiplier_d
+                    cost_d = accumulated_cost / 2
+                    # report progress
+                    if global_step >= step_for_report:
+                        print("  * step d ({1}) cost:  {0:8.4f}".format(cost_d, global_step))
 
-                # report progress
-                if global_step >= last_report:
-                    last_report = global_step + config["report_rate"]
-                    print("  * step ({3}) cost_d:  {0:8.4f}, cost_m:  {1:8.4f}, accuracy_d: {2:8.4f}".format(cost_d, cost_m, accuracy_d, global_step))
+                # generator
+                if "generator" in config["mode"]:
+                    epoch_multiplier_d = 1
+                    cost_m = 0
+                    accumulated_cost = 0
+
+                    for _ in range(epoch_multiplier_d):
+                        _, global_step, current_cost = mon_sess.run(
+                            [optimizer_m, global_step_op, discriminator_module.loss],
+                            feed_dict={
+                                target_feature_module.image_input: target_image_batch,
+                                discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                            })
+                        accumulated_cost += current_cost
+
+                    cost_m = accumulated_cost / epoch_multiplier_d
+                    # report progress
+                    if global_step >= step_for_report:
+                        print("  * step m ({1}) cost:  {0:8.4f}".format(cost_m, global_step))
+
+                if global_step >= step_for_report:
+                    step_for_report = global_step + config["report_rate"]
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
@@ -482,7 +495,7 @@ def adaption(config):
         json.dump(config, log_file, indent=1)
         log_file.write("\n---- END ----\n")
 
-        message = "cost_d:  {0:8}, cost_m:  {1:8}, accuracy_d: {2:8}".format(cost_d, cost_m, accuracy_d)
+        message = "cost_d:  {0:8}, cost_m:  {1:8}, accuracy: {2:8}".format(cost_d, cost_m, accuracy_d)
         log_file.write(message + "\n")
         print(message)
 
