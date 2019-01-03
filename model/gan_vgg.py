@@ -478,7 +478,7 @@ def adaption(config):
                 # report accuracy
                 if global_step >= step_for_report:
                     step_for_report = global_step + config["report_rate"]
-                    print("  * step a ({1}) accu:  {0:8.4f}".format(accuracy_d, global_step))
+                    print("  * {0:8.4f} estimated accuracy".format(accuracy_d))
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
