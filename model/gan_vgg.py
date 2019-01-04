@@ -474,10 +474,10 @@ def adaption(config):
                 # report progress
                 if global_step >= step_for_header:
                     step_for_header = global_step + config["report_rate"] * 25
-                    print("           step    cost_m    cost_d  accuracy")
+                    print("         step      cost_m      cost_d   accuracy")
                 if global_step >= step_for_report:
                     step_for_report = global_step + config["report_rate"]
-                    print("  *  ({0:8})  {1:8.4f}  {2:8.4f}  {3:8.4f}%".format(global_step, cost_m, cost_d, accuracy_d * 100))
+                    print("  *  {0:8}  {1:10.4f}  {2:10.4f}  {3:8.4f}%".format(global_step, cost_m, cost_d, accuracy_d * 100))
 
         except tf.errors.OutOfRangeError as e:
             print("no more data: {0}".format(repr(e)))
