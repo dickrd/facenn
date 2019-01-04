@@ -474,7 +474,7 @@ def adaption(config):
                 # report progress
                 if global_step >= step_for_header:
                     step_for_header = global_step + config["report_rate"] * 25
-                    print("    - - - - - - - - - - - - - - - - - - - - \n         step      cost_m      cost_d   accuracy")
+                    print("\n         step      cost_m      cost_d   accuracy\n            - - - - - - - - - - - - - - -")
                 if global_step >= step_for_report:
                     step_for_report = global_step + config["report_rate"]
                     print("  *  {0:8}  {1:10.4f}  {2:10.4f}  {3:8.4f}%".format(global_step, cost_m, cost_d, accuracy_d * 100))
