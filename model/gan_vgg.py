@@ -254,7 +254,7 @@ class NnClassification(Module):
             self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = tf.nn.sigmoid(fc_output)
 
-            self.loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
+            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
                                                                               labels=self.label_input))
 
         self._build_saver()
@@ -609,7 +609,7 @@ def _main():
                         help="path to config file")
 
     parser.add_argument("--adaption-mode", default=None,
-                        help="cuda device to use")
+                        help="decide whether adaption trains discriminator, generator or both")
 
     parser.add_argument("--test-using-source", action="store_true",
                         help="test source feature performance on target")
