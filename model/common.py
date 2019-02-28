@@ -1,4 +1,24 @@
+from __future__ import print_function
 import tensorflow as tf
+import numpy as np
+
+
+class ConfusionMatrix(object):
+    def __init__(self, class_count):
+        self.matrix = np.zeros(shape=(class_count, class_count), dtype=np.int)
+
+    def update(self, predictions, truth):
+        if not (len(predictions) == len(truth)):
+            print("Incompatible length: predictions({0}), truth({1})" \
+                  .format(len(predictions), len(truth)))
+            return
+
+        for i in range(len(predictions)):
+            self.matrix[truth[i]][predictions[i]] += 1
+
+    def generate_result(self):
+        result = "confusion matrix:\n  {}".format(self.matrix)
+        return result
 
 
 class RegressionBias(object):

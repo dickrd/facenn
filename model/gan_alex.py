@@ -7,7 +7,8 @@ import tensorflow as tf
 import numpy as np
 
 from data.common import TfReader
-from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook, DummyFile, new_conv_layer
+from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook, DummyFile, new_conv_layer, \
+    ConfusionMatrix
 
 
 class Module(object):
@@ -182,14 +183,14 @@ class NnGender(Module):
 
             fc_output = new_fc_layer(layer_last=fc_hidden,
                                      num_inputs=n_hidden,
-                                     num_outputs=1,
+                                     num_outputs=2,
                                      use_relu=False)
 
-            self.label_input = tf.placeholder(dtype=tf.float32)
+            self.label_input = tf.placeholder(dtype=tf.int64)
             self.prediction = tf.nn.sigmoid(fc_output)
 
-            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
-                                                                               labels=self.label_input))
+            self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=fc_output,
+                                                                                      labels=self.label_input))
 
         self._build_saver()
 
@@ -468,7 +469,7 @@ def adaption(config):
     os.remove(os.path.join(config["save_root"], "checkpoint"))
 
 
-def test(config, vgg):
+def test(config, alex):
     from io import BytesIO
     from PIL import Image
     from zipfile import ZipFile
@@ -479,19 +480,18 @@ def test(config, vgg):
     except OSError:
         pass
 
-    print("==> test started at {0} for {1}.".format(datetime.now().strftime("%Y-%m-%d %H:%M"), vgg))
+    print("==> test started at {0} for {1}.".format(datetime.now().strftime("%Y-%m-%d %H:%M"), alex))
     print("---- CONFIG DUMP ----")
     print(json.dumps(config, indent=1))
     print("---- END ----")
 
     print("--> building models...")
-    feature_module = vgg(original_model_path=config["vggface_model"],
-                         trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
+    feature_module = alex()
     gender_module = NnGender(feature=feature_module.feature)
     image, label = TfReader(data_path=config["test_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["test_data"]["epoch"]) \
         .read(batch_size=config["test_data"]["batch_size"])
-    statistics = RegressionBias()
+    statistics = ConfusionMatrix(2)
 
     # MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
@@ -537,7 +537,7 @@ def test(config, vgg):
     zip_file.close()
     with open(os.path.join(config["save_root"], "gan_vgg.log"), 'a') as log_file:
         message = "==> test for {2} completed at {0} in {1} steps.".format(datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                                                           test_step, vgg)
+                                                                           test_step, alex)
         log_file.write(message + "\n")
         print(message)
 
@@ -570,7 +570,7 @@ def test(config, vgg):
 
 def _main():
     import argparse
-    parser = argparse.ArgumentParser(description="gan with vgg.")
+    parser = argparse.ArgumentParser(description="gan with alex.")
     parser.add_argument("action", choices=["pretrain", "adaption", "test", "pipeline"],
                         help="action to perform")
     parser.add_argument("-c", "--config", default="gan_vgg.config",
@@ -599,9 +599,9 @@ def _main():
         adaption(config)
     elif args.action == "test":
         if args.test_using_source:
-            test(config, vgg=Source)
+            test(config, alex=Source)
         else:
-            test(config, vgg=Target)
+            test(config, alex=Target)
     elif args.action == "pipeline":
         pass
 
