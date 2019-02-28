@@ -1,14 +1,14 @@
 from __future__ import print_function
+
 import json
 import os
 from datetime import datetime
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 
 from data.common import TfReader
-from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook, DummyFile, new_conv_layer, \
-    ConfusionMatrix
+from model.common import new_fc_layer, EndSavingHook, LoadInitialValueHook, DummyFile, new_conv_layer, ConfusionMatrix
 
 
 class Module(object):
@@ -240,7 +240,7 @@ def pre_train(config):
     print("--> building models...")
     source_feature_module = Source()
     gender_module = NnGender(feature=source_feature_module.feature)
-    image, label = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
+    image, label = TfReader(data_path=config["source_data"]["path"], size=(256, 256),
                             num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
@@ -315,10 +315,10 @@ def adaption(config):
     target_feature_module = Target()
     target_feature_module.override_saver_for_init_by(source_model=source_feature_module)
     discriminator_module = NnClassification(feature=target_feature_module.feature)
-    source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
+    source_image, _ = TfReader(data_path=config["source_data"]["path"], size=(256, 256),
                                num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
-    target_image, _ = TfReader(data_path=config["target_data"]["path"], regression=True, size=(224, 224),
+    target_image, _ = TfReader(data_path=config["target_data"]["path"], size=(256, 256),
                                num_epochs=config["target_data"]["epoch"]) \
         .read(batch_size=config["target_data"]["batch_size"])
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
@@ -488,7 +488,7 @@ def test(config, alex):
     print("--> building models...")
     feature_module = alex()
     gender_module = NnGender(feature=feature_module.feature)
-    image, label = TfReader(data_path=config["test_data"]["path"], regression=True, size=(224, 224),
+    image, label = TfReader(data_path=config["test_data"]["path"], size=(256, 256),
                             num_epochs=config["test_data"]["epoch"]) \
         .read(batch_size=config["test_data"]["batch_size"])
     statistics = ConfusionMatrix(2)
