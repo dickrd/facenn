@@ -146,7 +146,7 @@ def new_conv_layer(layer_last, num_input_channels, filter_size, num_filters, use
 
     # We return both the resulting layer and the filter-weights
     # because we will plot the weights later.
-    return layer, weights
+    return layer, [weights, biases]
 
 
 def new_weights(shape):

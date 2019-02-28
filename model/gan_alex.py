@@ -53,35 +53,36 @@ class Source(Module):
         filter_size4 = 3
         num_filters4 = 48
 
-        # building layers.
-        layer_conv1, weights_conv1 = new_conv_layer(layer_last=input_image,
-                                                    num_input_channels=3,
-                                                    filter_size=filter_size1,
-                                                    num_filters=num_filters1,
-                                                    use_pooling=True)
+        with tf.variable_scope(self.variable_scope):
+            # building layers.
+            layer_conv1, weights_conv1 = new_conv_layer(layer_last=input_image,
+                                                        num_input_channels=3,
+                                                        filter_size=filter_size1,
+                                                        num_filters=num_filters1,
+                                                        use_pooling=True)
 
-        layer_conv2, weights_conv2 = new_conv_layer(layer_last=layer_conv1,
-                                                    num_input_channels=num_filters1,
-                                                    filter_size=filter_size2,
-                                                    num_filters=num_filters2,
-                                                    use_pooling=True)
+            layer_conv2, weights_conv2 = new_conv_layer(layer_last=layer_conv1,
+                                                        num_input_channels=num_filters1,
+                                                        filter_size=filter_size2,
+                                                        num_filters=num_filters2,
+                                                        use_pooling=True)
 
-        layer_conv3, weights_conv3 = new_conv_layer(layer_last=layer_conv2,
-                                                    num_input_channels=num_filters2,
-                                                    filter_size=filter_size3,
-                                                    num_filters=num_filters3,
-                                                    use_pooling=True)
+            layer_conv3, weights_conv3 = new_conv_layer(layer_last=layer_conv2,
+                                                        num_input_channels=num_filters2,
+                                                        filter_size=filter_size3,
+                                                        num_filters=num_filters3,
+                                                        use_pooling=True)
 
-        layer_conv4, weights_conv4 = new_conv_layer(layer_last=layer_conv3,
-                                                    num_input_channels=num_filters3,
-                                                    filter_size=filter_size4,
-                                                    num_filters=num_filters4,
-                                                    use_pooling=True)
+            layer_conv4, weights_conv4 = new_conv_layer(layer_last=layer_conv3,
+                                                        num_input_channels=num_filters3,
+                                                        filter_size=filter_size4,
+                                                        num_filters=num_filters4,
+                                                        use_pooling=True)
 
         # config
         self.image_input = input_image
         self.feature = layer_conv4
-        self.trainable_list = [weights_conv1, weights_conv2, weights_conv3, weights_conv4]
+        self.trainable_list = weights_conv1 + weights_conv2 + weights_conv3 + weights_conv4
 
         self._build_saver()
 
@@ -109,35 +110,36 @@ class Target(Module):
         filter_size4 = 3
         num_filters4 = 48
 
-        # building layers.
-        layer_conv1, weights_conv1 = new_conv_layer(layer_last=input_image,
-                                                    num_input_channels=3,
-                                                    filter_size=filter_size1,
-                                                    num_filters=num_filters1,
-                                                    use_pooling=True)
+        with tf.variable_scope(self.variable_scope):
+            # building layers.
+            layer_conv1, weights_conv1 = new_conv_layer(layer_last=input_image,
+                                                        num_input_channels=3,
+                                                        filter_size=filter_size1,
+                                                        num_filters=num_filters1,
+                                                        use_pooling=True)
 
-        layer_conv2, weights_conv2 = new_conv_layer(layer_last=layer_conv1,
-                                                    num_input_channels=num_filters1,
-                                                    filter_size=filter_size2,
-                                                    num_filters=num_filters2,
-                                                    use_pooling=True)
+            layer_conv2, weights_conv2 = new_conv_layer(layer_last=layer_conv1,
+                                                        num_input_channels=num_filters1,
+                                                        filter_size=filter_size2,
+                                                        num_filters=num_filters2,
+                                                        use_pooling=True)
 
-        layer_conv3, weights_conv3 = new_conv_layer(layer_last=layer_conv2,
-                                                    num_input_channels=num_filters2,
-                                                    filter_size=filter_size3,
-                                                    num_filters=num_filters3,
-                                                    use_pooling=True)
+            layer_conv3, weights_conv3 = new_conv_layer(layer_last=layer_conv2,
+                                                        num_input_channels=num_filters2,
+                                                        filter_size=filter_size3,
+                                                        num_filters=num_filters3,
+                                                        use_pooling=True)
 
-        layer_conv4, weights_conv4 = new_conv_layer(layer_last=layer_conv3,
-                                                    num_input_channels=num_filters3,
-                                                    filter_size=filter_size4,
-                                                    num_filters=num_filters4,
-                                                    use_pooling=True)
+            layer_conv4, weights_conv4 = new_conv_layer(layer_last=layer_conv3,
+                                                        num_input_channels=num_filters3,
+                                                        filter_size=filter_size4,
+                                                        num_filters=num_filters4,
+                                                        use_pooling=True)
 
         # config
         self.image_input = input_image
         self.feature = layer_conv4
-        self.trainable_list = [weights_conv1, weights_conv2, weights_conv3, weights_conv4]
+        self.trainable_list = weights_conv1 + weights_conv2 + weights_conv3 + weights_conv4
 
         self._init_path = None
         self._init_saver = None
