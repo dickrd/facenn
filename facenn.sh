@@ -4,13 +4,13 @@ set -o errexit
 trap "exit" INT
 
 print_help() {
-    echo "usage: facenn <config> | gan [options]"
+    echo "usage: facenn <<config> | gan [options] | alex [options]>"
 }
 
 # find script directory
 setup_basedir() {
     local source="${BASH_SOURCE[0]}"
-    while [ -h "$source" ]
+    while [[ -h "$source" ]]
     do
         DIR="$( cd -P "$( dirname "$source" )" && pwd )"
         source="$(readlink "$source")"
@@ -23,7 +23,7 @@ setup_basedir() {
 # run python script
 main() {
     setup_basedir
-    if [ "$#" -eq 1 ] && [ -r "$1" ]
+    if [[ "$#" -eq 1 ]] && [[ -r "$1" ]]
     then
         source "$1"
         git --work-tree="$basedir" --git-dir="$basedir/.git" diff | tee -a "$logs"
@@ -31,7 +31,7 @@ main() {
         cat "$1" | tee -a "$logs"
         echo "---- END ----" | tee -a "$logs"
 
-        while [ "$repeat" -gt 0 ]
+        while [[ "$repeat" -gt 0 ]]
         do
             for arg in "${args[@]}"
             do
@@ -39,18 +39,22 @@ main() {
             done
 
             # clean-up
-            if [ ${#cleanup} -gt 0 ]
+            if [[ ${#cleanup} -gt 0 ]]
             then
                 rm -f ${cleanup}
             fi
             repeat=$(($repeat - 1))
         done
-    elif [ "$#" -gt 0 ]
+    elif [[ "$#" -gt 0 ]]
     then
         case "$1" in
             gan)
                 shift
                 python "$basedir/model/gan_vgg.py" $@
+                ;;
+            alex)
+                shift
+                python "$basedir/model/gan_alex.py" $@
                 ;;
             *)
                 print_help
