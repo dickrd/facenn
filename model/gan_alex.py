@@ -5,10 +5,9 @@ from datetime import datetime
 
 import tensorflow as tf
 import numpy as np
-from scipy.io import loadmat
 
 from data.common import TfReader
-from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook, DummyFile
+from model.common import new_fc_layer, RegressionBias, EndSavingHook, LoadInitialValueHook, DummyFile, new_conv_layer
 
 
 class Module(object):
@@ -31,162 +30,126 @@ class Module(object):
         self.saver.save(sess=sess, save_path=os.path.join(path, self.variable_scope))
 
 
-class SourceVgg(Module):
-    def __init__(self, original_model_path, trainable_layers=None, feature_layer="pool5"):
+class Source(Module):
+    def __init__(self):
         """
         Code from https://github.com/ZZUTK/Tensorflow-VGG-face, modified by Dick Zhou.
         """
 
-        super(SourceVgg, self).__init__(variable_scope="vgg_source")
+        super(Source, self).__init__(variable_scope="source")
 
-        data = loadmat(original_model_path)
-        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_source_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="source_input")
 
-        # read meta info
-        meta = data['meta']
-        classes = meta['classes']
-        class_names = classes[0][0]['description'][0][0]
-        normalization = meta['normalization']
-        average_image = np.squeeze(normalization[0][0]['averageImage'][0][0][0][0])
-        image_size = np.squeeze(normalization[0][0]['imageSize'][0][0])
-        input_maps = tf.image.resize_images(input_image, (image_size[0], image_size[1]))
+        # hyper-parameters.
+        filter_size1 = 3
+        num_filters1 = 32
 
-        # read layer info
-        layers = data['layers']
-        current = input_maps - average_image
-        network = {}
-        weights = {}
-        with tf.variable_scope(self.variable_scope):
-            for layer in layers[0]:
-                name = layer[0]['name'][0][0]
-                layer_type = layer[0]['type'][0][0]
-                if layer_type == 'conv':
-                    if name[:2] == 'fc':
-                        padding = 'VALID'
-                    else:
-                        padding = 'SAME'
-                    stride = layer[0]['stride'][0][0]
-                    kernel, bias = layer[0]['weights'][0][0]
-                    weight = tf.Variable(kernel, name="weight_" + name)
-                    bias = tf.Variable(np.squeeze(bias).reshape(-1), name="bias_" + name)
-                    conv = tf.nn.conv2d(current, weight,
-                                        strides=(1, stride[0], stride[0], 1), padding=padding)
-                    current = tf.nn.bias_add(conv, bias)
+        filter_size2 = 3
+        num_filters2 = 64
 
-                    weights[name] = [weight, bias]
-                elif layer_type == 'relu':
-                    current = tf.nn.relu(current)
+        filter_size3 = 3
+        num_filters3 = 128
 
-                    weights[name] = []
-                elif layer_type == 'pool':
-                    stride = layer[0]['stride'][0][0]
-                    pool = layer[0]['pool'][0][0]
-                    current = tf.nn.max_pool(current, ksize=(1, pool[0], pool[1], 1),
-                                             strides=(1, stride[0], stride[0], 1), padding='SAME')
+        filter_size4 = 3
+        num_filters4 = 48
 
-                    weights[name] = []
-                elif layer_type == 'softmax':
-                    current = tf.nn.softmax(tf.reshape(current, [-1, len(class_names)]))
+        # building layers.
+        layer_conv1, weights_conv1 = new_conv_layer(layer_last=input_image,
+                                                    num_input_channels=3,
+                                                    filter_size=filter_size1,
+                                                    num_filters=num_filters1,
+                                                    use_pooling=True)
 
-                    weights[name] = []
+        layer_conv2, weights_conv2 = new_conv_layer(layer_last=layer_conv1,
+                                                    num_input_channels=num_filters1,
+                                                    filter_size=filter_size2,
+                                                    num_filters=num_filters2,
+                                                    use_pooling=True)
 
-                network[name] = current
+        layer_conv3, weights_conv3 = new_conv_layer(layer_last=layer_conv2,
+                                                    num_input_channels=num_filters2,
+                                                    filter_size=filter_size3,
+                                                    num_filters=num_filters3,
+                                                    use_pooling=True)
+
+        layer_conv4, weights_conv4 = new_conv_layer(layer_last=layer_conv3,
+                                                    num_input_channels=num_filters3,
+                                                    filter_size=filter_size4,
+                                                    num_filters=num_filters4,
+                                                    use_pooling=True)
 
         # config
         self.image_input = input_image
-        self.feature = network[feature_layer]
-        self.trainable_list = []
-        self.weights = weights
-
-        for name in trainable_layers:
-            self.trainable_list += weights[name]
+        self.feature = layer_conv4
+        self.trainable_list = [weights_conv1, weights_conv2, weights_conv3, weights_conv4]
 
         self._build_saver()
 
 
-class TargetVgg(Module):
-    def __init__(self, original_model_path, trainable_layers=None, feature_layer="pool5"):
+class Target(Module):
+    def __init__(self):
         """
         Code from https://github.com/ZZUTK/Tensorflow-VGG-face, modified by Dick Zhou.
         """
 
-        super(TargetVgg, self).__init__(variable_scope="vgg_target")
+        super(Target, self).__init__(variable_scope="target")
 
-        data = loadmat(original_model_path)
-        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="vgg_target_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="target_input")
 
-        # read meta info
-        meta = data['meta']
-        classes = meta['classes']
-        class_names = classes[0][0]['description'][0][0]
-        normalization = meta['normalization']
-        average_image = np.squeeze(normalization[0][0]['averageImage'][0][0][0][0])
-        image_size = np.squeeze(normalization[0][0]['imageSize'][0][0])
-        input_maps = tf.image.resize_images(input_image, (image_size[0], image_size[1]))
+        # hyper-parameters.
+        filter_size1 = 3
+        num_filters1 = 32
 
-        # read layer info
-        layers = data['layers']
-        current = input_maps - average_image
-        network = {}
-        weights = {}
-        with tf.variable_scope(self.variable_scope):
-            for layer in layers[0]:
-                name = layer[0]['name'][0][0]
-                layer_type = layer[0]['type'][0][0]
-                if layer_type == 'conv':
-                    if name[:2] == 'fc':
-                        padding = 'VALID'
-                    else:
-                        padding = 'SAME'
-                    stride = layer[0]['stride'][0][0]
-                    kernel, bias = layer[0]['weights'][0][0]
-                    weight = tf.Variable(kernel, name="weight_" + name)
-                    bias = tf.Variable(np.squeeze(bias).reshape(-1), name="bias_" + name)
-                    conv = tf.nn.conv2d(current, weight,
-                                        strides=(1, stride[0], stride[0], 1), padding=padding)
-                    current = tf.nn.bias_add(conv, bias)
+        filter_size2 = 3
+        num_filters2 = 64
 
-                    weights[name] = [weight, bias]
-                elif layer_type == 'relu':
-                    current = tf.nn.relu(current)
+        filter_size3 = 3
+        num_filters3 = 128
 
-                    weights[name] = []
-                elif layer_type == 'pool':
-                    stride = layer[0]['stride'][0][0]
-                    pool = layer[0]['pool'][0][0]
-                    current = tf.nn.max_pool(current, ksize=(1, pool[0], pool[1], 1),
-                                             strides=(1, stride[0], stride[0], 1), padding='SAME')
+        filter_size4 = 3
+        num_filters4 = 48
 
-                    weights[name] = []
-                elif layer_type == 'softmax':
-                    current = tf.nn.softmax(tf.reshape(current, [-1, len(class_names)]))
+        # building layers.
+        layer_conv1, weights_conv1 = new_conv_layer(layer_last=input_image,
+                                                    num_input_channels=3,
+                                                    filter_size=filter_size1,
+                                                    num_filters=num_filters1,
+                                                    use_pooling=True)
 
-                    weights[name] = []
+        layer_conv2, weights_conv2 = new_conv_layer(layer_last=layer_conv1,
+                                                    num_input_channels=num_filters1,
+                                                    filter_size=filter_size2,
+                                                    num_filters=num_filters2,
+                                                    use_pooling=True)
 
-                network[name] = current
+        layer_conv3, weights_conv3 = new_conv_layer(layer_last=layer_conv2,
+                                                    num_input_channels=num_filters2,
+                                                    filter_size=filter_size3,
+                                                    num_filters=num_filters3,
+                                                    use_pooling=True)
+
+        layer_conv4, weights_conv4 = new_conv_layer(layer_last=layer_conv3,
+                                                    num_input_channels=num_filters3,
+                                                    filter_size=filter_size4,
+                                                    num_filters=num_filters4,
+                                                    use_pooling=True)
 
         # config
         self.image_input = input_image
-        self.feature = network[feature_layer]
-        self.trainable_list = []
-        self.weights = weights
+        self.feature = layer_conv4
+        self.trainable_list = [weights_conv1, weights_conv2, weights_conv3, weights_conv4]
 
-        self._trainable_layers = trainable_layers
         self._init_path = None
         self._init_saver = None
-
-        for name in trainable_layers:
-            self.trainable_list += weights[name]
 
         self._build_saver()
 
     def override_saver_for_init_by(self, source_model):
         init_config = {}
-        for name in self._trainable_layers:
-            w_s, b_s = source_model.weights[name]
-            w_t, b_t = self.weights[name]
+        for i in range(len(self.trainable_list)):
+            w_s = source_model.trainable_list[i]
+            w_t = self.trainable_list[i]
             init_config[w_s.name.split(':')[0]] = w_t
-            init_config[b_s.name.split(':')[0]] = b_t
 
         self._init_saver = tf.train.Saver(init_config)
         self._init_path = source_model.variable_scope
@@ -202,9 +165,9 @@ class TargetVgg(Module):
             self.loaded = True
 
 
-class NnRegression(Module):
-    def __init__(self, feature, n_hidden=4096):
-        super(NnRegression, self).__init__(variable_scope="nn_regression")
+class NnGender(Module):
+    def __init__(self, feature, n_hidden=1024):
+        super(NnGender, self).__init__(variable_scope="nn_gender")
 
         with tf.variable_scope(self.variable_scope):
             num_features = feature.get_shape()[1:].num_elements()
@@ -221,9 +184,10 @@ class NnRegression(Module):
                                      use_relu=False)
 
             self.label_input = tf.placeholder(dtype=tf.float32)
-            self.prediction = fc_output
+            self.prediction = tf.nn.sigmoid(fc_output)
 
-            self.loss = tf.reduce_sum(tf.pow(tf.transpose(self.prediction) - self.label_input, 2))
+            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
+                                                                               labels=self.label_input))
 
         self._build_saver()
 
@@ -271,17 +235,15 @@ def pre_train(config):
     print("---- END ----")
 
     print("--> building models...")
-    source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
-                                      trainable_layers=config["trainable_layers"],
-                                      feature_layer=config["feature_layer"])
-    regression_module = NnRegression(feature=source_feature_module.feature)
+    source_feature_module = Source()
+    gender_module = NnGender(feature=source_feature_module.feature)
     image, label = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
-    var_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, regression_module.variable_scope) + \
+    var_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, gender_module.variable_scope) + \
                    source_feature_module.trainable_list
-    optimizer = tf.train.AdamOptimizer(learning_rate=config["learning_rate"]).minimize(loss=regression_module.loss,
+    optimizer = tf.train.AdamOptimizer(learning_rate=config["learning_rate"]).minimize(loss=gender_module.loss,
                                                                                        global_step=global_step_op,
                                                                                        var_list=var_to_train,
                                                                                        colocate_gradients_with_ops=True)
@@ -298,17 +260,17 @@ def pre_train(config):
         checkpoint = os.path.join(config["save_root"], "adamantite")
     else:
         checkpoint = None
-    hooks = [EndSavingHook(module_list=[source_feature_module, regression_module], save_path=config["save_root"])]
+    hooks = [EndSavingHook(module_list=[source_feature_module, gender_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks, checkpoint_dir=checkpoint) as mon_sess:
         global_step = -1
         current_cost = -1
         try:
             while not mon_sess.should_stop():
                 image_batch, label_batch = mon_sess.run([image, label])
-                _, global_step, current_cost = mon_sess.run([optimizer, global_step_op, regression_module.loss],
+                _, global_step, current_cost = mon_sess.run([optimizer, global_step_op, gender_module.loss],
                                                             feed_dict={
                                                                 source_feature_module.image_input: image_batch,
-                                                                regression_module.label_input: label_batch
+                                                                gender_module.label_input: label_batch
                                                             })
                 if global_step % config["report_rate"] == 0:
                     print("  * step ({0}) cost: {1:8}".format(global_step, current_cost))
@@ -346,12 +308,8 @@ def adaption(config):
     print("---- END ----")
 
     print("--> building models...")
-    source_feature_module = SourceVgg(original_model_path=config["vggface_model"],
-                                      trainable_layers=config["trainable_layers"],
-                                      feature_layer=config["feature_layer"])
-    target_feature_module = TargetVgg(original_model_path=config["vggface_model"],
-                                      trainable_layers=config["trainable_layers"],
-                                      feature_layer=config["feature_layer"])
+    source_feature_module = Source()
+    target_feature_module = Target()
     target_feature_module.override_saver_for_init_by(source_model=source_feature_module)
     discriminator_module = NnClassification(feature=target_feature_module.feature)
     source_image, _ = TfReader(data_path=config["source_data"]["path"], regression=True, size=(224, 224),
@@ -527,7 +485,7 @@ def test(config, vgg):
     print("--> building models...")
     feature_module = vgg(original_model_path=config["vggface_model"],
                          trainable_layers=config["trainable_layers"], feature_layer=config["feature_layer"])
-    regression_module = NnRegression(feature=feature_module.feature)
+    gender_module = NnGender(feature=feature_module.feature)
     image, label = TfReader(data_path=config["test_data"]["path"], regression=True, size=(224, 224),
                             num_epochs=config["test_data"]["epoch"]) \
         .read(batch_size=config["test_data"]["batch_size"])
@@ -543,7 +501,7 @@ def test(config, vgg):
             'w')
     else:
         zip_file = DummyFile()
-    hooks = [LoadInitialValueHook(module_list=[feature_module, regression_module], save_path=config["save_root"])]
+    hooks = [LoadInitialValueHook(module_list=[feature_module, gender_module], save_path=config["save_root"])]
     with tf.train.MonitoredTrainingSession(hooks=hooks) as mon_sess:
         accumulated_accuracy = 0
         test_step = 0
@@ -552,7 +510,7 @@ def test(config, vgg):
             while not mon_sess.should_stop():
                 test_step += 1
                 image_batch, label_batch = mon_sess.run([image, label])
-                prediction_value = mon_sess.run(regression_module.prediction, feed_dict={
+                prediction_value = mon_sess.run(gender_module.prediction, feed_dict={
                     feature_module.image_input: image_batch
                 })
                 accuracy_value = np.mean(np.abs(np.transpose(prediction_value) - label_batch))
@@ -561,8 +519,8 @@ def test(config, vgg):
                 if test_step % config["report_rate"] == 0:
                     print("  * step ({0}) accuracy: {1:8}".format(test_step, accumulated_accuracy / test_step))
                 if config["keep_zip"] > 0:
-                    for image_bytes, label_float, predition_float in zip(image_batch, label_batch, prediction_value):
-                        prediction_string = str(int(predition_float + (0.5 if predition_float > 0 else -0.5)))
+                    for image_bytes, label_float, prediction_float in zip(image_batch, label_batch, prediction_value):
+                        prediction_string = str(int(prediction_float + (0.5 if prediction_float > 0 else -0.5)))
                         label_string = str(int(label_float))
                         jpeg_bytes = BytesIO()
                         Image.fromarray(np.uint8(image_bytes), "RGB").save(jpeg_bytes, format="JPEG")
@@ -639,9 +597,9 @@ def _main():
         adaption(config)
     elif args.action == "test":
         if args.test_using_source:
-            test(config, vgg=SourceVgg)
+            test(config, vgg=Source)
         else:
-            test(config, vgg=TargetVgg)
+            test(config, vgg=Target)
     elif args.action == "pipeline":
         pass
 
