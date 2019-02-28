@@ -39,7 +39,7 @@ class Source(Module):
 
         super(Source, self).__init__(variable_scope="source")
 
-        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="source_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 256, 256, 3], name="source_input")
 
         # hyper-parameters.
         filter_size1 = 3
@@ -96,7 +96,7 @@ class Target(Module):
 
         super(Target, self).__init__(variable_scope="target")
 
-        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 224, 224, 3], name="target_input")
+        input_image = tf.placeholder(dtype=tf.float32, shape=[None, 256, 256, 3], name="target_input")
 
         # hyper-parameters.
         filter_size1 = 3
