@@ -515,7 +515,7 @@ def test(config, alex):
                 prediction_value = mon_sess.run(gender_module.prediction, feed_dict={
                     feature_module.image_input: image_batch
                 })
-                accuracy_value = np.mean(np.abs(np.transpose(prediction_value) - label_batch))
+                accuracy_value = 1 - np.mean(np.abs(np.transpose(prediction_value) - label_batch))
                 accumulated_accuracy += accuracy_value
                 statistics.update(predictions=prediction_value, truth=label_batch)
                 if test_step % config["report_rate"] == 0:
