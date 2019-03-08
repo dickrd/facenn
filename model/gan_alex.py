@@ -384,25 +384,22 @@ def adaption(config):
 
                 # discriminator
                 if "discriminator" in config["adaption_mode"]:
-                    cost_d = 0
-                    accumulated_cost = 0
+                    import random
 
-                    _, global_step, current_cost = mon_sess.run(
+                    combined = list(zip(
+                        source_feature_batch + target_feature_batch,
+                        [1] * config["source_data"]["batch_size"] + [0] * config["target_data"]["batch_size"]
+                    ))
+                    random.shuffle(combined)
+
+                    features, labels = zip(*combined)
+
+                    _, global_step, cost_d = mon_sess.run(
                         [optimizer_d, global_step_op, discriminator_module.loss],
                         feed_dict={
-                            target_feature_module.feature: source_feature_batch,
-                            discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
+                            target_feature_module.feature: features,
+                            discriminator_module.label_input: labels
                         })
-                    accumulated_cost += current_cost
-                    _, global_step, current_cost = mon_sess.run(
-                        [optimizer_d, global_step_op, discriminator_module.loss],
-                        feed_dict={
-                            target_feature_module.feature: target_feature_batch,
-                            discriminator_module.label_input: [0] * config["target_data"]["batch_size"]
-                        })
-                    accumulated_cost += current_cost
-
-                    cost_d = accumulated_cost / 2
 
                 # generator
                 if "generator" in config["adaption_mode"]:
