@@ -244,8 +244,10 @@ def pre_train(config):
                             num_epochs=config["source_data"]["epoch"]) \
         .read(batch_size=config["source_data"]["batch_size"])
     global_step_op = tf.Variable(0, trainable=False, name="global_step")
-    var_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, gender_module.variable_scope) + \
-                   source_feature_module.trainable_list
+    var_to_train = tf.get_collection(
+        tf.GraphKeys.TRAINABLE_VARIABLES,
+        gender_module.variable_scope
+    ) + source_feature_module.trainable_list
     optimizer = tf.train.AdamOptimizer(learning_rate=config["learning_rate"]).minimize(loss=gender_module.loss,
                                                                                        global_step=global_step_op,
                                                                                        var_list=var_to_train,
@@ -334,7 +336,6 @@ def adaption(config):
                   global_step=global_step_op,
                   var_list=target_feature_module.trainable_list,
                   colocate_gradients_with_ops=True)
-    accuracy = tf.reduce_mean(1 - tf.abs(discriminator_module.prediction - discriminator_module.label_input))
 
     print("optimizer_d variables:", end='')
     for index, var in enumerate(var_d):
@@ -423,11 +424,11 @@ def adaption(config):
                 # determine accuracy
                 features = np.concatenate((source_feature_batch, target_feature_batch), axis=0)
                 labels = [1] * config["source_data"]["batch_size"] + [0] * config["target_data"]["batch_size"]
-                accuracy_d = mon_sess.run(accuracy,
-                                          feed_dict={
-                                              target_feature_module.feature: features,
-                                              discriminator_module.label_input: labels
-                                          })
+                prediction_batch = mon_sess.run(discriminator_module.prediction,
+                                                feed_dict={
+                                                    target_feature_module.feature: features
+                                                })
+                accuracy_d = 1 - np.mean(np.abs(np.transpose(prediction_batch) - labels))
 
                 # report progress
                 if global_step >= step_for_header:
