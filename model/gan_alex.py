@@ -220,7 +220,7 @@ class NnClassification(Module):
             self.label_input = tf.placeholder(dtype=tf.float32)
             self.prediction = tf.nn.sigmoid(fc_output)
 
-            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fc_output,
+            self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.transpose(fc_output),
                                                                                labels=self.label_input))
 
         self._build_saver()
