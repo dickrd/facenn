@@ -387,7 +387,7 @@ def adaption(config):
                     import random
 
                     combined = list(zip(
-                        source_feature_batch + target_feature_batch,
+                        np.concatenate((source_feature_batch, target_feature_batch), axis=0),
                         [1] * config["source_data"]["batch_size"] + [0] * config["target_data"]["batch_size"]
                     ))
                     random.shuffle(combined)
@@ -421,7 +421,7 @@ def adaption(config):
                     cost_m = accumulated_cost / epoch_multiplier_d
 
                 # determine accuracy
-                features = source_feature_batch + target_feature_batch
+                features = np.concatenate((source_feature_batch, target_feature_batch), axis=0)
                 labels = [1] * config["source_data"]["batch_size"] + [0] * config["target_data"]["batch_size"]
                 accuracy_d = mon_sess.run(accuracy,
                                           feed_dict={
