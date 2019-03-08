@@ -399,7 +399,8 @@ def adaption(config):
                         feed_dict={
                             target_feature_module.feature: features,
                             discriminator_module.label_input: labels
-                        })
+                        }
+                    )
 
                 # generator
                 if "generator" in config["adaption_mode"]:
@@ -413,26 +414,20 @@ def adaption(config):
                             feed_dict={
                                 target_feature_module.image_input: target_image_batch,
                                 discriminator_module.label_input: [1] * config["target_data"]["batch_size"]
-                            })
+                            }
+                        )
                         accumulated_cost += current_cost
 
                     cost_m = accumulated_cost / epoch_multiplier_d
 
                 # determine accuracy
-                accuracy_d = 0
-                accuracy_d += mon_sess.run(accuracy,
-                                           feed_dict={
-                                               target_feature_module.feature: source_feature_batch,
-                                               discriminator_module.label_input: [1] * config["target_data"][
-                                                   "batch_size"]
-                                           })
-                accuracy_d += mon_sess.run(accuracy,
-                                           feed_dict={
-                                               target_feature_module.feature: target_feature_batch,
-                                               discriminator_module.label_input: [0] * config["target_data"][
-                                                   "batch_size"]
-                                           })
-                accuracy_d = accuracy_d / 2
+                features = source_feature_batch + target_feature_batch
+                labels = [1] * config["source_data"]["batch_size"] + [0] * config["target_data"]["batch_size"]
+                accuracy_d = mon_sess.run(accuracy,
+                                          feed_dict={
+                                              target_feature_module.feature: features,
+                                              discriminator_module.label_input: labels
+                                          })
 
                 # report progress
                 if global_step >= step_for_header:
